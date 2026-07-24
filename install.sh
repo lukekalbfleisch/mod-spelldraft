@@ -72,6 +72,7 @@ if command -v podman >/dev/null 2>&1 || command -v docker >/dev/null 2>&1; then
     # Docker Desktop VM and is NOT visible from the host filesystem.
     WS_CONTAINER=$($CTR_TOOL ps -a --format '{{.Names}}' 2>/dev/null | grep -m1 'worldserver')
     if [ -n "$WS_CONTAINER" ]; then
+        $CTR_TOOL exec "$WS_CONTAINER" mkdir -p /azerothcore/env/dist/data/dbc/ 2>/dev/null
         if $CTR_TOOL cp "$MODULE_DIR/dbc/." "$WS_CONTAINER:/azerothcore/env/dist/data/dbc/" 2>/dev/null; then
             echo "DBC files copied into container '$WS_CONTAINER' (/azerothcore/env/dist/data/dbc)."
             DBC_DEPLOYED=1
@@ -79,6 +80,7 @@ if command -v podman >/dev/null 2>&1 || command -v docker >/dev/null 2>&1; then
             # If the worldserver mount is read-only, try copying to client-data container (which mounts it rw)
             DATA_CONTAINER=$($CTR_TOOL ps -a --format '{{.Names}}' 2>/dev/null | grep -m1 'client-data')
             if [ -n "$DATA_CONTAINER" ]; then
+                $CTR_TOOL exec "$DATA_CONTAINER" mkdir -p /azerothcore/env/dist/data/dbc/ 2>/dev/null
                 if $CTR_TOOL cp "$MODULE_DIR/dbc/." "$DATA_CONTAINER:/azerothcore/env/dist/data/dbc/" 2>/dev/null; then
                     echo "DBC files copied into container '$DATA_CONTAINER' (/azerothcore/env/dist/data/dbc)."
                     DBC_DEPLOYED=1
@@ -91,7 +93,7 @@ if command -v podman >/dev/null 2>&1 || command -v docker >/dev/null 2>&1; then
     if [ "$DBC_DEPLOYED" -ne 1 ]; then
         VOL_NAME=""
         for v in $($CTR_TOOL volume ls -q 2>/dev/null); do
-            if [[ "$v" == *"ac-client-data"* ]]; then
+            if [[ "$v" == *"ac-client-data"* ]] || [[ "$v" == *"client-data"* ]]; then
                 VOL_NAME="$v"
                 break
             fi
@@ -100,7 +102,7 @@ if command -v podman >/dev/null 2>&1 || command -v docker >/dev/null 2>&1; then
         if [ -n "$VOL_NAME" ]; then
             IMAGE_NAME=$($CTR_TOOL images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E 'client-data|worldserver|authserver|alpine|busybox' | head -n 1)
             if [ -n "$IMAGE_NAME" ]; then
-                if $CTR_TOOL run --rm -v "$VOL_NAME:/data" -v "$MODULE_DIR/dbc:/src" --entrypoint "" "$IMAGE_NAME" cp -r /src/. /data/dbc/ 2>/dev/null; then
+                if $CTR_TOOL run --rm -v "$VOL_NAME:/data" -v "$MODULE_DIR/dbc:/src" --entrypoint "" "$IMAGE_NAME" sh -c "mkdir -p /data/dbc && cp -r /src/. /data/dbc/" 2>/dev/null; then
                     echo "DBC files copied into volume '$VOL_NAME' via temporary container ($IMAGE_NAME)."
                     DBC_DEPLOYED=1
                 fi
