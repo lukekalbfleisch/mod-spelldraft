@@ -1,4 +1,5 @@
 -- Create character tables for prestige and draft tracking with ON DELETE CASCADE
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 
 CREATE TABLE IF NOT EXISTS `prestige_stats` (
   `player_id` INT UNSIGNED NOT NULL PRIMARY KEY,
@@ -29,3 +30,6 @@ CREATE TABLE IF NOT EXISTS `draft_bans` (
   PRIMARY KEY (`player_id`, `spell_id`),
   CONSTRAINT `fk_draft_bans_char` FOREIGN KEY (`player_id`) REFERENCES `characters`(`guid`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+/*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;
+
