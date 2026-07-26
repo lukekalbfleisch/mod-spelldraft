@@ -1,0 +1,26 @@
+# ==============================================================================
+# SpellDraft Account Portal Configuration Template
+# Copy this file to config.yml to customize settings.
+# ==============================================================================
+
+server:
+  # Network port to listen on (e.g. 3000 for http, 443 for https).
+  port: 3000
+
+  # Set to true to enable HTTPS (SSL/TLS).
+  use_ssl: false
+
+  # Paths to SSL certificate and private key files.
+  cert_path: "./cert.pem"
+  key_path: "./key.pem"
+
+  # Automatically redirect HTTP (port 80) traffic to HTTPS.
+  redirect_http: false
+  http_redirect_port: 80
+
+database:
+  # Docker MySQL container details
+  container_name: "ac-database"
+  user: "root"
+  password: "password"
+  auth_db: "acore_auth"

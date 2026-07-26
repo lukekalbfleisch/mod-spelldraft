@@ -1,3 +1,9 @@
 
 docs/
 client_assets/
+
+tools/account-portal/config.yml
+
+tools/account-portal/cert.pem
+
+tools/account-portal/key.pem
