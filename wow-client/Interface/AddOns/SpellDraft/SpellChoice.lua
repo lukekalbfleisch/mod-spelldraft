@@ -91,20 +91,112 @@ SpellChoiceFrame:SetFrameStrata("TOOLTIP")
 GameTooltip:SetClampedToScreen(true)
 local buttons = {SpellChoiceButton1, SpellChoiceButton2, SpellChoiceButton3}
 
+-- ============================================================================
+-- Custom SpellDraft Button Skinner
+-- ============================================================================
+local function SkinSpellDraftButton(btn, btnType)
+  if not btn or btn.sdSkinned then return end
+  btn.sdSkinned = true
+
+  -- Clear standard Blizzard UIPanelButton textures
+  if btn.SetNormalTexture then btn:SetNormalTexture("") end
+  if btn.SetHighlightTexture then btn:SetHighlightTexture("") end
+  if btn.SetPushedTexture then btn:SetPushedTexture("") end
+  if btn.SetDisabledTexture then btn:SetDisabledTexture("") end
+
+  -- Configure standard WoW 3.3.5a Backdrop
+  btn:SetBackdrop({
+    bgFile = "Interface\\Buttons\\WHITE8x8",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true,
+    tileSize = 16,
+    edgeSize = 12,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 }
+  })
+
+  -- Dark void background
+  btn:SetBackdropColor(0.04, 0.06, 0.12, 0.92)
+
+  -- Theme color definitions
+  local theme = {
+    reroll = {
+      border = { r = 0.61, g = 0.32, b = 1.0, a = 0.9 },        -- Mystical Purple (#9d52ff)
+      hoverBorder = { r = 0.97, g = 0.45, b = 0.08, a = 1.0 },  -- Spellfire Orange (#f97316)
+      font = "Fonts\\FRIZQT__.TTF",
+      size = 11
+    },
+    ban = {
+      border = { r = 0.95, g = 0.25, b = 0.37, a = 0.9 },       -- Crimson Red (#f43f5e)
+      hoverBorder = { r = 1.0, g = 0.45, b = 0.45, a = 1.0 },
+      font = "Fonts\\FRIZQT__.TTF",
+      size = 11
+    },
+    dismiss = {
+      border = { r = 0.83, g = 0.68, b = 0.21, a = 0.9 },       -- Antique Gold (#d4af37)
+      hoverBorder = { r = 1.0, g = 0.88, b = 0.35, a = 1.0 },
+      font = "Fonts\\FRIZQT__.TTF",
+      size = 11
+    }
+  }
+
+  local t = theme[btnType] or theme.dismiss
+  btn.sdTheme = t
+  btn:SetBackdropBorderColor(t.border.r, t.border.g, t.border.b, t.border.a)
+
+  -- Custom Font Formatting
+  local fs = btn:GetFontString()
+  if fs then
+    fs:SetFont(t.font, t.size, "OUTLINE")
+    fs:SetShadowOffset(1, -1)
+    fs:SetShadowColor(0, 0, 0, 1)
+  end
+
+  if not btn.sdHooked then
+    btn.sdHooked = true
+    btn:HookScript("OnEnter", function(self)
+      if self:IsEnabled() then
+        self:SetBackdropColor(0.12, 0.16, 0.28, 0.95)
+        local h = self.sdTheme.hoverBorder
+        self:SetBackdropBorderColor(h.r, h.g, h.b, h.a)
+      end
+    end)
+
+    btn:HookScript("OnLeave", function(self)
+      self:SetBackdropColor(0.04, 0.06, 0.12, 0.92)
+      if self.sdBanActive then
+        self:SetBackdropBorderColor(1.0, 0.25, 0.35, 1.0)
+      else
+        local b = self.sdTheme.border
+        self:SetBackdropBorderColor(b.r, b.g, b.b, b.a)
+      end
+    end)
+  end
+end
+
 -- Using shared timer frame for Delay
 local function UpdateRerollButton()
   if not SpellChoiceRerollButton then return end
-  if unlimitedReroll then
-    SpellChoiceRerollButton:SetText("Reroll (∞)")
-    SpellChoiceRerollButton:Enable()
-    return
-  end
-  SpellChoiceRerollButton:SetText("Reroll (" .. rerollsLeft .. ")")
+  SkinSpellDraftButton(SpellChoiceRerollButton, "reroll")
 
-  if rerollsLeft > 0 then
+  local label
+  if unlimitedReroll then
+    label = "Reroll (∞)"
+  else
+    label = "Reroll (" .. rerollsLeft .. ")"
+  end
+  SpellChoiceRerollButton:SetText(label)
+
+  if (rerollsLeft > 0 or unlimitedReroll) and not banMode then
     SpellChoiceRerollButton:Enable()
+    SpellChoiceRerollButton:SetAlpha(1.0)
+    SpellChoiceRerollButton:SetBackdropColor(0.04, 0.06, 0.12, 0.92)
+    local b = SpellChoiceRerollButton.sdTheme.border
+    SpellChoiceRerollButton:SetBackdropBorderColor(b.r, b.g, b.b, b.a)
   else
     SpellChoiceRerollButton:Disable()
+    SpellChoiceRerollButton:SetAlpha(0.4)
+    SpellChoiceRerollButton:SetBackdropColor(0.02, 0.03, 0.06, 0.8)
+    SpellChoiceRerollButton:SetBackdropBorderColor(0.2, 0.2, 0.2, 0.3)
   end
 end
 -- Debug helper
@@ -177,7 +269,7 @@ local function ShowSpellChoices(spellIDs)
       SpellChoiceDismissButton:SetText(btnText)
       SpellChoiceDismissButton:SetParent(UIParent)
       SpellChoiceDismissButton:ClearAllPoints()
-      SpellChoiceDismissButton:SetPoint("CENTER", UIParent, "CENTER", 0, -300)
+      SpellChoiceDismissButton:SetPoint("CENTER", UIParent, "CENTER", 0, -160)
       SpellChoiceDismissButton:SetFrameStrata("FULLSCREEN_DIALOG")
       SpellChoiceDismissButton:EnableMouse(true)
       SpellChoiceDismissButton:Show()
@@ -689,9 +781,14 @@ SpellChoiceRerollButton:SetScript("OnClick", function()
   end
 end)
 SpellChoiceBanButton = CreateFrame("Button", "SpellChoiceBanButton", SpellChoiceFrame, "UIPanelButtonTemplate")
-SpellChoiceBanButton:SetSize(100, 22)
+SpellChoiceBanButton:SetSize(110, 26)
 SpellChoiceBanButton:SetText("Ban")
-SpellChoiceBanButton:SetPoint("LEFT", SpellChoiceRerollButton, "RIGHT", 10, 0)
+SpellChoiceBanButton:SetPoint("LEFT", SpellChoiceRerollButton, "RIGHT", 12, 0)
+
+SkinSpellDraftButton(SpellChoiceRerollButton, "reroll")
+SkinSpellDraftButton(SpellChoiceBanButton, "ban")
+SkinSpellDraftButton(SpellChoiceDismissButton, "dismiss")
+
 SpellChoiceBanButton:SetScript("OnClick", function(self)
   PlaySound("igMainMenuOptionCheckBoxOn")
   banMode = not banMode
@@ -699,11 +796,19 @@ SpellChoiceBanButton:SetScript("OnClick", function(self)
   -- Toggle appearance
   if banMode then
     self:SetText("Ban [ON] (" .. bansLeft .. ")")
+    self.sdBanActive = true
+    self:SetBackdropColor(0.25, 0.04, 0.08, 0.95)
+    self:SetBackdropBorderColor(1.0, 0.25, 0.35, 1.0)
     SpellChoiceRerollButton:Disable()
+    SpellChoiceRerollButton:SetAlpha(0.4)
     UIErrorsFrame:AddMessage("Ban Mode Activated", 1.0, 0.5, 0.0, 1)
     Debug("[Ban] Mode activated")
   else
     self:SetText("Ban (" .. bansLeft .. ")")
+    self.sdBanActive = false
+    self:SetBackdropColor(0.04, 0.06, 0.12, 0.92)
+    local b = self.sdTheme.border
+    self:SetBackdropBorderColor(b.r, b.g, b.b, b.a)
     UpdateRerollButton()
     Debug("[Ban] Mode deactivated")
 
@@ -764,7 +869,7 @@ SpellChoiceDismissButton:SetScript("OnClick", function(self)
 
         self:SetParent(UIParent)
         self:ClearAllPoints()
-        self:SetPoint("CENTER", UIParent, "CENTER", 0, -300)
+        self:SetPoint("CENTER", UIParent, "CENTER", 0, -160)
         self:SetFrameStrata("FULLSCREEN_DIALOG")
         self:EnableMouse(true)
         self:Show()

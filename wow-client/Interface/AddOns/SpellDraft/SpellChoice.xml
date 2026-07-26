@@ -116,20 +116,17 @@
 
       <!-- Reroll Button -->
       <Button name="SpellChoiceRerollButton" inherits="UIPanelButtonTemplate" text="Reroll">
-        <Size><AbsDimension x="100" y="24"/></Size>
+        <Size><AbsDimension x="110" y="26"/></Size>
         <Anchors>
-          <Anchor point="BOTTOM" relativeTo="SpellChoiceTitle" relativePoint="TOP" x="0" y="10"/>
+          <Anchor point="BOTTOM" relativeTo="SpellChoiceTitle" relativePoint="TOP" x="-60" y="12"/>
         </Anchors>
-
       </Button>
       <!-- Dismiss Button -->
       <Button name="SpellChoiceDismissButton" inherits="UIPanelButtonTemplate" text="Dismiss">
-        <Size><AbsDimension x="100" y="24"/></Size>
+        <Size><AbsDimension x="130" y="26"/></Size>
         <Anchors>
           <Anchor point="CENTER" relativeTo="SpellChoiceTitle" relativePoint="TOP" x="0" y="-290"/>
         </Anchors>
-        <Scripts>
-        </Scripts>
       </Button>
     </Frames>
   </Frame>
