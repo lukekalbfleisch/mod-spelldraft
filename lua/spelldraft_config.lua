@@ -491,6 +491,16 @@ CONFIG = {
         [49005] = 6,  -- Mark of Blood (GENERAL)
         [49016] = 6,  -- Hysteria (GENERAL)
         [47568] = 6,  -- Empower Rune Weapon (DEATHKNIGHT)
+        [48982] = 6,  -- Rune Tap (DEATHKNIGHT)
+        [45529] = 6,  -- Blood Tap (DEATHKNIGHT)
+        [48707] = 6,  -- Anti-Magic Shell (DEATHKNIGHT)
+        [48743] = 6,  -- Death Pact (DEATHKNIGHT)
+        [56222] = 6,  -- Dark Command (DEATHKNIGHT)
+        [47541] = 6,  -- Death Coil (DEATHKNIGHT)
+        [48266] = 6,  -- Blood Presence (DEATHKNIGHT)
+        [48263] = 6,  -- Frost Presence (DEATHKNIGHT)
+        [48265] = 6,  -- Unholy Presence (DEATHKNIGHT)
+        [53428] = 6,  -- Runeforging (DEATHKNIGHT)
     },
 
     -- Spells that require the player to already know a prerequisite spell.
