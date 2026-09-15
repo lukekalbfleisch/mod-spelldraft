@@ -1,304 +1,999 @@
 {
   "_comment": "EverQuest-inspired custom spell pack. Consumed by tools/build_client_patch.py, which clones a neutral native base row (Crippling Poison 25809: zero attributes, no stance/family/cooldown baggage) and applies these overrides, then emits both the client Spell.dbc rows (patch-P.mpq) and data/sql/db-world/28_eq_spell_pack.sql (dbc_spells + dbc_skilllineability rows so the draft pool can see them). Spell IDs 993001-993030 are reserved for this pack. 'value' is the in-game number; the tool stores value-1 in EffectBasePoints per DBC convention. 'draftable': false spells are hidden helpers (proc payloads) that get a Spell.dbc row but no draft-pool row. Icons/visuals are reused verbatim from existing native spells - no new art. Deliberately overtuned by design.",
-
   "skill_line": {
     "id": 999,
     "category": 7,
     "name": "Forgotten Tomes"
   },
-
   "spells": [
     {
-      "id": 993001, "name": "Ensnare", "level": 8, "rarity": 1,
+      "id": 993001,
+      "name": "Ensnare",
+      "level": 8,
+      "rarity": 1,
       "tooltip": "Snares the target, reducing movement speed by 55% for $d.",
-      "icon": 163, "visual": 3839, "school": 8, "mechanic": 11,
-      "range_idx": 5, "cast_idx": 1, "duration_idx": 3,
-      "effects": [{"type": 6, "aura": 33, "value": -55, "target_a": 6}]
+      "icon": 163,
+      "visual": 3839,
+      "school": 8,
+      "mechanic": 11,
+      "range_idx": 5,
+      "cast_idx": 1,
+      "duration_idx": 3,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 33,
+          "value": -55,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 0,
+          "amplitude": 3000,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 0
     },
     {
-      "id": 993002, "name": "Forlorn Deeds", "level": 20, "rarity": 2,
+      "id": 993002,
+      "name": "Forlorn Deeds",
+      "level": 20,
+      "rarity": 2,
       "tooltip": "The target's attack speed is reduced by 50% for $d.",
-      "icon": 199, "visual": 145, "school": 1, "mechanic": 0,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 5,
-      "effects": [{"type": 6, "aura": 193, "value": -50, "target_a": 6}]
+      "icon": 199,
+      "visual": 145,
+      "school": 1,
+      "mechanic": 0,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 5,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 193,
+          "value": -50,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 1
     },
     {
-      "id": 993003, "name": "Color Slant", "level": 30, "rarity": 3,
+      "id": 993003,
+      "name": "Color Slant",
+      "level": 30,
+      "rarity": 3,
       "tooltip": "A blinding lattice of colour stuns all nearby enemies for $d.",
-      "icon": 199, "visual": 358, "school": 64, "mechanic": 12,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 31,
-      "effects": [{"type": 6, "aura": 12, "value": 0, "target_a": 22, "target_b": 15, "radius_idx": 9}]
+      "icon": 199,
+      "visual": 358,
+      "school": 64,
+      "mechanic": 12,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 31,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 12,
+          "value": 0,
+          "target_a": 22,
+          "target_b": 15,
+          "radius_idx": 9
+        }
+      ],
+      "family_bit": 2
     },
     {
-      "id": 993004, "name": "Charm", "level": 40, "rarity": 4,
+      "id": 993004,
+      "name": "Charm",
+      "level": 40,
+      "rarity": 4,
       "tooltip": "Bends the target to your will, forcing it to serve you for $d.",
-      "icon": 1500, "visual": 1266, "school": 32, "mechanic": 1,
-      "range_idx": 4, "cast_idx": 14, "duration_idx": 5,
-      "effects": [{"type": 6, "aura": 6, "value": 0, "target_a": 6}]
+      "icon": 1500,
+      "visual": 1266,
+      "school": 32,
+      "mechanic": 1,
+      "range_idx": 4,
+      "cast_idx": 14,
+      "duration_idx": 5,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 6,
+          "value": 0,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 8,
+          "value": 0,
+          "amplitude": 3000,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 3
     },
     {
-      "id": 993005, "name": "Engulfing Darkness", "level": 25, "rarity": 2,
+      "id": 993005,
+      "name": "Engulfing Darkness",
+      "level": 25,
+      "rarity": 2,
       "tooltip": "Shadow clings to the target, slowing movement by 50% and dealing damage over $d.",
-      "icon": 234, "visual": 71, "school": 32, "mechanic": 11,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 9,
+      "icon": 234,
+      "visual": 71,
+      "school": 32,
+      "mechanic": 11,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 9,
       "effects": [
-        {"type": 6, "aura": 33, "value": -50, "target_a": 6},
-        {"type": 6, "aura": 3, "value": 150, "amplitude": 3000, "target_a": 6}
-      ]
+        {
+          "type": 6,
+          "aura": 33,
+          "value": -50,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 150,
+          "amplitude": 3000,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 4
     },
     {
-      "id": 993006, "name": "Envenomed Bolt", "level": 15, "rarity": 1,
+      "id": 993006,
+      "name": "Envenomed Bolt",
+      "level": 15,
+      "rarity": 1,
       "tooltip": "Hurls a bolt of venom for instant damage, then poisons the target for $d.",
-      "icon": 313, "visual": 8629, "school": 8, "mechanic": 0,
-      "range_idx": 4, "cast_idx": 5, "duration_idx": 29,
+      "icon": 313,
+      "visual": 8629,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 4,
+      "cast_idx": 5,
+      "duration_idx": 29,
       "effects": [
-        {"type": 2, "value": 400, "die_sides": 50, "target_a": 6},
-        {"type": 6, "aura": 3, "value": 120, "amplitude": 3000, "target_a": 6}
-      ]
+        {
+          "type": 2,
+          "value": 400,
+          "die_sides": 50,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 120,
+          "amplitude": 3000,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 5
     },
     {
-      "id": 993007, "name": "Enduring Roots", "level": 12, "rarity": 2,
+      "id": 993007,
+      "name": "Enduring Roots",
+      "level": 12,
+      "rarity": 2,
       "tooltip": "Roots the target in place for $d.",
-      "icon": 20, "visual": 38, "school": 8, "mechanic": 7,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 26,
-      "effects": [{"type": 6, "aura": 26, "value": 0, "target_a": 6}]
+      "icon": 20,
+      "visual": 38,
+      "school": 8,
+      "mechanic": 7,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 26,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 26,
+          "value": 0,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 6
     },
     {
-      "id": 993008, "name": "Mesmerize", "level": 18, "rarity": 2,
+      "id": 993008,
+      "name": "Mesmerize",
+      "level": 18,
+      "rarity": 2,
       "tooltip": "Mesmerizes the target, preventing all action but making it invulnerable for $d.",
-      "icon": 96, "visual": 1305, "school": 32, "mechanic": 18,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 26,
+      "icon": 96,
+      "visual": 1305,
+      "school": 32,
+      "mechanic": 18,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 26,
       "effects": [
-        {"type": 6, "aura": 12, "value": 0, "target_a": 6},
-        {"type": 6, "aura": 39, "value": 0, "misc_a": 127, "target_a": 6}
-      ]
+        {
+          "type": 6,
+          "aura": 12,
+          "value": 0,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 39,
+          "value": 0,
+          "misc_a": 127,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 0,
+          "amplitude": 3000,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 7
     },
     {
-      "id": 993009, "name": "Harmony", "level": 10, "rarity": 1,
+      "id": 993009,
+      "name": "Harmony",
+      "level": 10,
+      "rarity": 1,
       "tooltip": "Calms the target, preventing it from attacking for $d.",
-      "icon": 454, "visual": 6439, "school": 8, "mechanic": 0,
-      "range_idx": 5, "cast_idx": 1, "duration_idx": 9,
-      "effects": [{"type": 6, "aura": 25, "value": 0, "target_a": 6}]
+      "icon": 454,
+      "visual": 6439,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 5,
+      "cast_idx": 1,
+      "duration_idx": 9,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 25,
+          "value": 0,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 8
     },
     {
-      "id": 993010, "name": "Cavorting Bones", "level": 20, "rarity": 3,
+      "id": 993010,
+      "name": "Cavorting Bones",
+      "level": 20,
+      "rarity": 3,
       "tooltip": "Animates a skeletal servant to fight for you for $d.",
-      "icon": 61, "visual": 634, "school": 32, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 14, "duration_idx": 41,
-      "effects": [{"type": 28, "value": 0, "misc_a": 11200, "misc_b": 61, "target_a": 17}]
-    },
-
-    {
-      "id": 993011, "name": "Lich", "level": 30, "rarity": 3, "rank_text": "Rank 1",
-      "tooltip": "Your flesh withers, draining your health to fuel your mana regeneration. Lasts $d.",
-      "icon": 208, "visual": 1225, "school": 32, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 42,
+      "icon": 61,
+      "visual": 634,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 14,
+      "duration_idx": 41,
       "effects": [
-        {"type": 6, "aura": 21, "value": 15, "amplitude": 3000, "misc_a": 0, "target_a": 1},
-        {"type": 6, "aura": 3, "value": 30, "amplitude": 3000, "target_a": 1}
-      ]
+        {
+          "type": 28,
+          "value": 0,
+          "misc_a": 11200,
+          "misc_b": 61,
+          "target_a": 17
+        },
+        {
+          "type": 2,
+          "value": 0,
+          "target_a": 22,
+          "target_b": 15,
+          "radius_idx": 9
+        }
+      ],
+      "family_bit": 9
     },
     {
-      "id": 993012, "name": "Lich", "level": 50, "rarity": 3, "rank_text": "Rank 2", "draftable": false,
+      "id": 993011,
+      "name": "Lich",
+      "level": 30,
+      "rarity": 3,
+      "rank_text": "Rank 1",
       "tooltip": "Your flesh withers, draining your health to fuel your mana regeneration. Lasts $d.",
-      "icon": 208, "visual": 1225, "school": 32, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 42,
+      "icon": 208,
+      "visual": 1225,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 42,
       "effects": [
-        {"type": 6, "aura": 21, "value": 25, "amplitude": 3000, "misc_a": 0, "target_a": 1},
-        {"type": 6, "aura": 3, "value": 60, "amplitude": 3000, "target_a": 1}
-      ]
+        {
+          "type": 6,
+          "aura": 21,
+          "value": 15,
+          "amplitude": 3000,
+          "misc_a": 0,
+          "target_a": 1
+        },
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 30,
+          "amplitude": 3000,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 10
     },
     {
-      "id": 993013, "name": "Lich", "level": 70, "rarity": 3, "rank_text": "Rank 3", "draftable": false,
+      "id": 993012,
+      "name": "Lich",
+      "level": 50,
+      "rarity": 3,
+      "rank_text": "Rank 2",
+      "draftable": false,
       "tooltip": "Your flesh withers, draining your health to fuel your mana regeneration. Lasts $d.",
-      "icon": 208, "visual": 1225, "school": 32, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 42,
+      "icon": 208,
+      "visual": 1225,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 42,
       "effects": [
-        {"type": 6, "aura": 21, "value": 40, "amplitude": 3000, "misc_a": 0, "target_a": 1},
-        {"type": 6, "aura": 3, "value": 100, "amplitude": 3000, "target_a": 1}
-      ]
+        {
+          "type": 6,
+          "aura": 21,
+          "value": 25,
+          "amplitude": 3000,
+          "misc_a": 0,
+          "target_a": 1
+        },
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 60,
+          "amplitude": 3000,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 10
     },
-
     {
-      "id": 993014, "name": "Alacrity", "level": 25, "rarity": 2,
+      "id": 993013,
+      "name": "Lich",
+      "level": 70,
+      "rarity": 3,
+      "rank_text": "Rank 3",
+      "draftable": false,
+      "tooltip": "Your flesh withers, draining your health to fuel your mana regeneration. Lasts $d.",
+      "icon": 208,
+      "visual": 1225,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 42,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 21,
+          "value": 40,
+          "amplitude": 3000,
+          "misc_a": 0,
+          "target_a": 1
+        },
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 100,
+          "amplitude": 3000,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 10
+    },
+    {
+      "id": 993014,
+      "name": "Alacrity",
+      "level": 25,
+      "rarity": 2,
       "tooltip": "Quickens your hands, increasing attack speed by 40% for $d.",
-      "icon": 515, "visual": 254, "school": 8, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 30,
-      "effects": [{"type": 6, "aura": 138, "value": 40, "target_a": 1}]
+      "icon": 515,
+      "visual": 254,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 30,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 138,
+          "value": 40,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 11
     },
     {
-      "id": 993015, "name": "Aegolism", "level": 20, "rarity": 2,
+      "id": 993015,
+      "name": "Aegolism",
+      "level": 20,
+      "rarity": 2,
       "tooltip": "Shields the caster in ancient wards, increasing health by 1000 for $d.",
-      "icon": 685, "visual": 0, "school": 2, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 42,
-      "effects": [{"type": 6, "aura": 34, "value": 1000, "target_a": 1}]
+      "icon": 685,
+      "visual": 0,
+      "school": 2,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 42,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 34,
+          "value": 1000,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 12
     },
     {
-      "id": 993016, "name": "Avatar", "level": 45, "rarity": 4,
+      "id": 993016,
+      "name": "Avatar",
+      "level": 45,
+      "rarity": 4,
       "tooltip": "The strength of the gods fills you, greatly increasing melee power for $d.",
-      "icon": 332, "visual": 9187, "school": 2, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 41,
+      "icon": 332,
+      "visual": 9187,
+      "school": 2,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 41,
       "effects": [
-        {"type": 6, "aura": 29, "value": 200, "misc_a": 0, "target_a": 1},
-        {"type": 6, "aura": 29, "value": 200, "misc_a": 1, "target_a": 1},
-        {"type": 6, "aura": 99, "value": 400, "target_a": 1}
-      ]
+        {
+          "type": 6,
+          "aura": 29,
+          "value": 200,
+          "misc_a": 0,
+          "target_a": 1
+        },
+        {
+          "type": 6,
+          "aura": 29,
+          "value": 200,
+          "misc_a": 1,
+          "target_a": 1
+        },
+        {
+          "type": 6,
+          "aura": 99,
+          "value": 400,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 13
     },
     {
-      "id": 993017, "name": "Spirit of the Puma", "level": 25, "rarity": 3,
+      "id": 993017,
+      "name": "Spirit of the Puma",
+      "level": 25,
+      "rarity": 3,
       "tooltip": "The spirit of the great cat rides your weapon, striking for extra damage. Lasts $d.",
-      "icon": 220, "visual": 7939, "school": 8, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 30,
-      "proc_flags": 20, "proc_chance": 25,
-      "effects": [{"type": 6, "aura": 42, "value": 0, "trigger": 993018, "target_a": 1}]
+      "icon": 220,
+      "visual": 7939,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 30,
+      "proc_flags": 20,
+      "proc_chance": 25,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 42,
+          "value": 0,
+          "trigger": 993018,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 14
     },
     {
-      "id": 993018, "name": "Spirit of the Puma", "level": 1, "rarity": 0, "draftable": false,
+      "id": 993018,
+      "name": "Spirit of the Puma",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
       "tooltip": "Spirit claws rake the target.",
-      "icon": 220, "visual": 7939, "school": 8, "mechanic": 0,
-      "range_idx": 2, "cast_idx": 1, "duration_idx": 0,
-      "effects": [{"type": 2, "value": 500, "die_sides": 100, "target_a": 6}]
+      "icon": 220,
+      "visual": 7939,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 2,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 2,
+          "value": 500,
+          "die_sides": 100,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 14
     },
     {
-      "id": 993019, "name": "Shroud of the Leech", "level": 35, "rarity": 3,
+      "id": 993019,
+      "name": "Shroud of the Leech",
+      "level": 35,
+      "rarity": 3,
       "tooltip": "Your strikes drain the life of your enemies. Lasts $d.",
-      "icon": 546, "visual": 1225, "school": 32, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 30,
-      "proc_flags": 20, "proc_chance": 25,
-      "effects": [{"type": 6, "aura": 42, "value": 0, "trigger": 993020, "target_a": 1}]
+      "icon": 546,
+      "visual": 1225,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 30,
+      "proc_flags": 20,
+      "proc_chance": 25,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 42,
+          "value": 0,
+          "trigger": 993020,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 15
     },
     {
-      "id": 993020, "name": "Shroud of the Leech", "level": 1, "rarity": 0, "draftable": false,
+      "id": 993020,
+      "name": "Shroud of the Leech",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
       "tooltip": "Drains life from the target.",
-      "icon": 546, "visual": 1225, "school": 32, "mechanic": 0,
-      "range_idx": 2, "cast_idx": 1, "duration_idx": 0,
-      "effects": [{"type": 9, "value": 400, "die_sides": 100, "target_a": 6}]
+      "icon": 546,
+      "visual": 1225,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 2,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 9,
+          "value": 400,
+          "die_sides": 100,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 15
     },
     {
-      "id": 993021, "name": "Burnout", "level": 30, "rarity": 3,
+      "id": 993021,
+      "name": "Burnout",
+      "level": 30,
+      "rarity": 3,
       "tooltip": "Infuses your pet with fury, greatly increasing its attack speed, damage and health for $d.",
-      "icon": 1680, "visual": 7278, "school": 4, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 30,
+      "icon": 1680,
+      "visual": 7278,
+      "school": 4,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 30,
       "effects": [
-        {"type": 6, "aura": 138, "value": 40, "target_a": 5},
-        {"type": 6, "aura": 13, "value": 300, "misc_a": 127, "target_a": 5},
-        {"type": 6, "aura": 34, "value": 2000, "target_a": 5}
-      ]
+        {
+          "type": 6,
+          "aura": 138,
+          "value": 40,
+          "target_a": 5
+        },
+        {
+          "type": 6,
+          "aura": 13,
+          "value": 300,
+          "misc_a": 127,
+          "target_a": 5
+        },
+        {
+          "type": 6,
+          "aura": 34,
+          "value": 2000,
+          "target_a": 5
+        }
+      ],
+      "family_bit": 16
     },
     {
-      "id": 993022, "name": "Clarity", "level": 15, "rarity": 2,
+      "id": 993022,
+      "name": "Clarity",
+      "level": 15,
+      "rarity": 2,
       "tooltip": "Clears your mind, greatly increasing mana regeneration for $d.",
-      "icon": 62, "visual": 0, "school": 8, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 42,
-      "effects": [{"type": 6, "aura": 85, "value": 200, "target_a": 1}]
+      "icon": 62,
+      "visual": 0,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 42,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 85,
+          "value": 200,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 17
     },
     {
-      "id": 993023, "name": "Chloroplast", "level": 12, "rarity": 1,
+      "id": 993023,
+      "name": "Chloroplast",
+      "level": 12,
+      "rarity": 1,
       "tooltip": "Nature knits your wounds, healing you every few seconds for $d.",
-      "icon": 64, "visual": 0, "school": 8, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 30,
-      "effects": [{"type": 6, "aura": 8, "value": 300, "amplitude": 3000, "target_a": 1}]
+      "icon": 64,
+      "visual": 0,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 30,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 8,
+          "value": 300,
+          "amplitude": 3000,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 18
     },
     {
-      "id": 993024, "name": "Incapacitate", "level": 22, "rarity": 2,
+      "id": 993024,
+      "name": "Incapacitate",
+      "level": 22,
+      "rarity": 2,
       "tooltip": "Saps the target's strength, reducing attack power and Strength for $d.",
-      "icon": 543, "visual": 346, "school": 32, "mechanic": 0,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 41,
+      "icon": 543,
+      "visual": 346,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 41,
       "effects": [
-        {"type": 6, "aura": 99, "value": -500, "target_a": 6},
-        {"type": 6, "aura": 29, "value": -100, "misc_a": 0, "target_a": 6}
-      ]
+        {
+          "type": 6,
+          "aura": 99,
+          "value": -500,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 29,
+          "value": -100,
+          "misc_a": 0,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 19
     },
     {
-      "id": 993025, "name": "Theft of Thought", "level": 28, "rarity": 3,
+      "id": 993025,
+      "name": "Theft of Thought",
+      "level": 28,
+      "rarity": 3,
       "tooltip": "Steals a large amount of mana from the target and grants it to you.",
-      "icon": 212, "visual": 177, "school": 32, "mechanic": 0,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 0,
-      "effects": [{"type": 8, "value": 3000, "misc_a": 0, "target_a": 6}]
+      "icon": 212,
+      "visual": 177,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 8,
+          "value": 3000,
+          "misc_a": 0,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 20
     },
     {
-      "id": 993026, "name": "Malo", "level": 30, "rarity": 2,
+      "id": 993026,
+      "name": "Malo",
+      "level": 30,
+      "rarity": 2,
       "tooltip": "Curses the target, reducing all resistances by 200 for $d.",
-      "icon": 55, "visual": 785, "school": 32, "mechanic": 0,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 5,
-      "effects": [{"type": 6, "aura": 22, "value": -200, "misc_a": 127, "target_a": 6}]
+      "icon": 55,
+      "visual": 785,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 5,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 22,
+          "value": -200,
+          "misc_a": 127,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 21
     },
     {
-      "id": 993027, "name": "Leech Touch", "level": 40, "rarity": 4,
+      "id": 993027,
+      "name": "Leech Touch",
+      "level": 40,
+      "rarity": 4,
       "tooltip": "Tears the life from your target, transferring it to you.",
-      "icon": 546, "visual": 1225, "school": 32, "mechanic": 0,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 0, "cooldown": 360000,
-      "effects": [{"type": 9, "value": 5000, "die_sides": 500, "target_a": 6}]
+      "icon": 546,
+      "visual": 1225,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "cooldown": 360000,
+      "effects": [
+        {
+          "type": 9,
+          "value": 5000,
+          "die_sides": 500,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 0,
+          "amplitude": 3000,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 22
     },
     {
-      "id": 993028, "name": "Promised Renewal", "level": 35, "rarity": 3,
+      "id": 993028,
+      "name": "Promised Renewal",
+      "level": 35,
+      "rarity": 3,
       "tooltip": "A promise of renewal that heals the target for 7500 after 18 seconds.",
-      "icon": 64, "visual": 0, "school": 2, "mechanic": 0,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 85,
-      "effects": [{"type": 6, "aura": 8, "value": 7500, "amplitude": 18000, "target_a": 21}]
+      "icon": 64,
+      "visual": 0,
+      "school": 2,
+      "mechanic": 0,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 85,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 8,
+          "value": 7500,
+          "amplitude": 18000,
+          "target_a": 21
+        }
+      ],
+      "family_bit": 23
     },
     {
-      "id": 993029, "name": "Whirl til you Hurl", "level": 28, "rarity": 3,
+      "id": 993029,
+      "name": "Whirl til you Hurl",
+      "level": 28,
+      "rarity": 3,
       "tooltip": "Spins the target helplessly, stunning it for $d.",
-      "icon": 83, "visual": 223, "school": 1, "mechanic": 12,
-      "range_idx": 2, "cast_idx": 1, "duration_idx": 105,
-      "effects": [{"type": 6, "aura": 12, "value": 0, "target_a": 6}]
+      "icon": 83,
+      "visual": 223,
+      "school": 1,
+      "mechanic": 12,
+      "range_idx": 2,
+      "cast_idx": 1,
+      "duration_idx": 105,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 12,
+          "value": 0,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 24
     },
     {
-      "id": 993030, "name": "Invoke Fear", "level": 24, "rarity": 3,
+      "id": 993030,
+      "name": "Invoke Fear",
+      "level": 24,
+      "rarity": 3,
       "tooltip": "Strikes terror into the target, causing it to flee for $d.",
-      "icon": 98, "visual": 336, "school": 32, "mechanic": 5,
-      "range_idx": 4, "cast_idx": 1, "duration_idx": 23,
-      "effects": [{"type": 6, "aura": 7, "value": 0, "target_a": 6}]
+      "icon": 98,
+      "visual": 336,
+      "school": 32,
+      "mechanic": 5,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 23,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 7,
+          "value": 0,
+          "target_a": 6
+        }
+      ],
+      "family_bit": 25
     },
-
     {
-      "id": 993031, "name": "Bladestorm", "level": 1, "rarity": 0, "draftable": false,
+      "id": 993031,
+      "name": "Bladestorm",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
       "tooltip": "A storm of blades tears through nearby enemies.",
-      "icon": 83, "visual": 223, "school": 1, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 0,
-      "effects": [{"type": 2, "value": 900, "die_sides": 200, "target_a": 22, "target_b": 15, "radius_idx": 9}]
+      "icon": 83,
+      "visual": 223,
+      "school": 1,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 2,
+          "value": 900,
+          "die_sides": 200,
+          "target_a": 22,
+          "target_b": 15,
+          "radius_idx": 9
+        }
+      ],
+      "family_bit": 26
     },
     {
-      "id": 993032, "name": "Poison Wind", "level": 1, "rarity": 0, "draftable": false,
+      "id": 993032,
+      "name": "Poison Wind",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
       "tooltip": "A choking cloud of poison engulfs nearby enemies.",
-      "icon": 313, "visual": 8629, "school": 8, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 29,
-      "effects": [{"type": 6, "aura": 3, "value": 250, "amplitude": 3000, "target_a": 22, "target_b": 15, "radius_idx": 9}]
+      "icon": 313,
+      "visual": 8629,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 29,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 3,
+          "value": 250,
+          "amplitude": 3000,
+          "target_a": 22,
+          "target_b": 15,
+          "radius_idx": 9
+        }
+      ],
+      "family_bit": 27
     },
     {
-      "id": 993033, "name": "Flames of Vengeance", "level": 1, "rarity": 0, "draftable": false,
+      "id": 993033,
+      "name": "Flames of Vengeance",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
       "tooltip": "Holy flames burn the target and mend your wounds.",
-      "icon": 51, "visual": 5600, "school": 4, "mechanic": 0,
-      "range_idx": 2, "cast_idx": 1, "duration_idx": 0,
+      "icon": 51,
+      "visual": 5600,
+      "school": 4,
+      "mechanic": 0,
+      "range_idx": 2,
+      "cast_idx": 1,
+      "duration_idx": 0,
       "effects": [
-        {"type": 2, "value": 700, "die_sides": 150, "target_a": 6},
-        {"type": 10, "value": 900, "die_sides": 100, "target_a": 1}
-      ]
+        {
+          "type": 2,
+          "value": 700,
+          "die_sides": 150,
+          "target_a": 6
+        },
+        {
+          "type": 10,
+          "value": 900,
+          "die_sides": 100,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 28
     },
     {
-      "id": 993034, "name": "Manastone", "level": 1, "rarity": 0, "draftable": false,
+      "id": 993034,
+      "name": "Manastone",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
       "tooltip": "Converts your life force into raw mana.",
-      "icon": 208, "visual": 1225, "school": 32, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 0,
+      "icon": 208,
+      "visual": 1225,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
       "effects": [
-        {"type": 30, "value": 4000, "misc_a": 0, "target_a": 1},
-        {"type": 2, "value": 2000, "target_a": 1}
-      ]
+        {
+          "type": 30,
+          "value": 4000,
+          "misc_a": 0,
+          "target_a": 1
+        },
+        {
+          "type": 2,
+          "value": 2000,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 29
     },
     {
-      "id": 993035, "name": "Regeneration", "level": 1, "rarity": 0, "draftable": false,
+      "id": 993035,
+      "name": "Regeneration",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
       "tooltip": "Fungal spores knit your flesh, regenerating health.",
-      "icon": 64, "visual": 0, "school": 8, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 550,
-      "effects": [{"type": 6, "aura": 8, "value": 250, "amplitude": 3000, "target_a": 1}]
+      "icon": 64,
+      "visual": 0,
+      "school": 8,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 550,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 8,
+          "value": 250,
+          "amplitude": 3000,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 30
     },
     {
-      "id": 993036, "name": "Rubicite Vigor", "level": 1, "rarity": 0, "draftable": false,
+      "id": 993036,
+      "name": "Rubicite Vigor",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
       "tooltip": "The living metal mends its wearer.",
-      "icon": 685, "visual": 0, "school": 2, "mechanic": 0,
-      "range_idx": 1, "cast_idx": 1, "duration_idx": 550,
-      "effects": [{"type": 6, "aura": 8, "value": 400, "amplitude": 3000, "target_a": 1}]
+      "icon": 685,
+      "visual": 0,
+      "school": 2,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 550,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 8,
+          "value": 400,
+          "amplitude": 3000,
+          "target_a": 1
+        }
+      ],
+      "family_bit": 31
     }
   ]
 }

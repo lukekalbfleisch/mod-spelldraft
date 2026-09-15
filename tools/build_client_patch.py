@@ -46,6 +46,15 @@ SPELL_DESC_FIELD = 170
 # accident. Field indices are from SpellEntry in
 # src/server/shared/DataStores/DBCStructure.h.
 EQ_BASE_TEMPLATE = 25809
+EQ_CUSTOM_FAMILY = 220
+
+
+def bitmask32(bit):
+    """1 << bit as a two's-complement signed int32 (DBC fields pack as 'i',
+    but classmask/flag words are really raw uint32 bit patterns - bit 31
+    overflows signed range without this)."""
+    v = 1 << bit
+    return v - 0x100000000 if v >= 0x80000000 else v
 
 SF_CATEGORY, SF_DISPEL, SF_MECHANIC = 1, 2, 3
 SF_ATTR0, SF_STANCES, SF_TARGETS = 4, 12, 16
@@ -123,14 +132,242 @@ def build_eq_spell_row(spells, base, spec):
     row[SF_DESC] = spells.add_string(spec['tooltip'])
     row[SF_TOOLTIP] = spells.add_string(spec['tooltip'])
     row[SF_MANAPCT] = 0
-    row[SF_FAMILY] = 0            # generic family: never interacts with class talents
-    for i in range(SF_FAMILYFLAGS, SF_FAMILYFLAGS + 3):
-        row[i] = 0
+    # Shared custom family (never collides with a real WotLK SPELLFAMILY_*),
+    # one classmask bit per distinct spell (spells sharing a `name`, e.g. a
+    # rank chain, share a bit) so a talent's native SpellMod aura can target
+    # exactly one of our spells via EffectSpellClassMask, the same mechanism
+    # real "Improved <Spell>" talents use. See tools/eq_talent_pack.json.
+    if 'family_bit' in spec:
+        row[SF_FAMILY] = EQ_CUSTOM_FAMILY
+        row[SF_FAMILYFLAGS] = bitmask32(spec['family_bit'])
+        row[SF_FAMILYFLAGS + 1] = 0
+        row[SF_FAMILYFLAGS + 2] = 0
+    else:
+        row[SF_FAMILY] = 0
+        for i in range(SF_FAMILYFLAGS, SF_FAMILYFLAGS + 3):
+            row[i] = 0
     row[SF_MAXTARGETS] = spec.get('max_targets', 0)
     row[SF_DMGCLASS] = 1
     row[SF_PREVENTION] = 0
     row[SF_SCHOOL] = spec.get('school', 1)
     return row
+
+
+# ============================================================================
+# EQ talent pack: passive SpellMod talents that modify EQ pack spells
+# ============================================================================
+
+def build_eq_talent_row(spells, base, spec):
+    """A passive, self-targeted talent spell carrying up to 3 native SpellMod
+    aura effects (flat or pct), each aimed at one EQ spell via the shared
+    custom family + a single classmask bit. See tools/eq_talent_pack.json for
+    the verified mechanism this relies on."""
+    row = list(base)
+    row[SPELL_ID_FIELD] = spec['id']
+    row[SF_CATEGORY] = row[SF_DISPEL] = row[SF_MECHANIC] = 0
+    for i in range(SF_ATTR0, SF_ATTR0 + 8):
+        row[i] = 0
+    for i in range(SF_STANCES, SF_STANCES + 4):
+        row[i] = 0
+    row[SF_TARGETS] = 0
+    row[SF_CASTTIME] = 1          # instant (talents are passive, never cast directly)
+    row[SF_RECOVERY] = row[SF_CATRECOVERY] = 0
+    row[SF_PROCFLAGS] = row[SF_PROCCHARGES] = 0
+    row[SF_PROCCHANCE] = 101
+    row[SF_MAXLEVEL] = 0
+    row[SF_BASELEVEL] = row[SF_SPELLLEVEL] = 0
+    row[SF_DURATION] = 0          # permanent while known (learned passive, not a timed buff)
+    row[SF_POWERTYPE] = 0
+    row[SF_MANACOST] = 0
+    row[SF_RANGE] = 1
+    row[SF_STACK] = 0
+    row[SF_EQUIPCLASS] = -1
+
+    target_mask = bitmask32(spec['target_bit'])
+    for e in range(3):
+        for field in (SF_EFFECT, SF_DIESIDES, SF_REALPPL, SF_BASEPOINTS, SF_EFFMECHANIC,
+                      SF_TARGETA, SF_TARGETB, SF_RADIUS, SF_AURA, SF_AMPLITUDE,
+                      SF_VALUEMULT, SF_CHAINTARGET, SF_ITEMTYPE, SF_MISCA, SF_MISCB,
+                      SF_TRIGGER, SF_COMBOPTS):
+            row[field + e] = 0
+        for j in range(3):
+            row[SF_CLASSMASK + e * 3 + j] = 0
+
+    for i, mod in enumerate(spec['mods'][:3]):
+        row[SF_EFFECT + i] = 6  # SPELL_EFFECT_APPLY_AURA
+        row[SF_DIESIDES + i] = 1
+        row[SF_AURA + i] = 108 if mod['kind'] == 'pct' else 107  # ADD_PCT/FLAT_MODIFIER
+        row[SF_BASEPOINTS + i] = mod['value'] - 1
+        row[SF_TARGETA + i] = 1   # TARGET_UNIT_CASTER
+        row[SF_MISCA + i] = mod['op']  # SpellModOp
+        row[SF_CLASSMASK + i * 3] = target_mask  # which EQ spell this effect affects
+
+    row[SF_VISUAL] = 0
+    row[SF_VISUAL + 1] = 0
+    row[SF_ICON] = spec['icon']
+    row[SF_NAME] = spells.add_string(spec['name'])
+    row[SF_RANK] = 0
+    row[SF_DESC] = spells.add_string(spec['tooltip'])
+    row[SF_TOOLTIP] = spells.add_string(spec['tooltip'])
+    row[SF_MANAPCT] = 0
+    row[SF_FAMILY] = 0
+    for i in range(SF_FAMILYFLAGS, SF_FAMILYFLAGS + 3):
+        row[i] = 0
+    row[SF_MAXTARGETS] = 0
+    row[SF_DMGCLASS] = 0
+    row[SF_PREVENTION] = 0
+    row[SF_SCHOOL] = 1
+    return row
+
+
+def build_marker_row(spells, base, spell_id, name, tooltip, icon):
+    """A minimal passive dummy-aura spell with no mechanical effect of its own
+    - used as an aura marker a hook can check via player:HasAura(id), for the
+    one talent (Skeletal Champion) that needs Eluna scripting instead of a
+    pure SpellMod because it must buff a summoned creature's own stats, not
+    a spell the caster casts (see lua/SpellDraft/spelldraft_eq_talents.lua)."""
+    row = list(base)
+    row[SPELL_ID_FIELD] = spell_id
+    row[SF_CATEGORY] = row[SF_DISPEL] = row[SF_MECHANIC] = 0
+    for i in range(SF_ATTR0, SF_ATTR0 + 8):
+        row[i] = 0
+    for i in range(SF_STANCES, SF_STANCES + 4):
+        row[i] = 0
+    row[SF_TARGETS] = 0
+    row[SF_CASTTIME] = 1
+    row[SF_RECOVERY] = row[SF_CATRECOVERY] = 0
+    row[SF_PROCFLAGS] = row[SF_PROCCHARGES] = 0
+    row[SF_PROCCHANCE] = 101
+    row[SF_MAXLEVEL] = row[SF_BASELEVEL] = row[SF_SPELLLEVEL] = 0
+    row[SF_DURATION] = 0
+    row[SF_POWERTYPE] = row[SF_MANACOST] = 0
+    row[SF_RANGE] = 1
+    row[SF_STACK] = 0
+    row[SF_EQUIPCLASS] = -1
+    for e in range(3):
+        for field in (SF_EFFECT, SF_DIESIDES, SF_REALPPL, SF_BASEPOINTS, SF_EFFMECHANIC,
+                      SF_TARGETA, SF_TARGETB, SF_RADIUS, SF_AURA, SF_AMPLITUDE,
+                      SF_VALUEMULT, SF_CHAINTARGET, SF_ITEMTYPE, SF_MISCA, SF_MISCB,
+                      SF_TRIGGER, SF_COMBOPTS):
+            row[field + e] = 0
+        for j in range(3):
+            row[SF_CLASSMASK + e * 3 + j] = 0
+    # Effect1: harmless dummy aura (34 = MOD_INCREASE_HEALTH, value 0) so the
+    # spell is a real, visible, learnable passive rather than a no-op.
+    row[SF_EFFECT] = 6
+    row[SF_DIESIDES] = 1
+    row[SF_AURA] = 34
+    row[SF_BASEPOINTS] = -1
+    row[SF_TARGETA] = 1
+    row[SF_VISUAL] = row[SF_VISUAL + 1] = 0
+    row[SF_ICON] = icon
+    row[SF_NAME] = spells.add_string(name)
+    row[SF_RANK] = 0
+    row[SF_DESC] = spells.add_string(tooltip)
+    row[SF_TOOLTIP] = spells.add_string(tooltip)
+    row[SF_MANAPCT] = 0
+    row[SF_FAMILY] = 0
+    for i in range(SF_FAMILYFLAGS, SF_FAMILYFLAGS + 3):
+        row[i] = 0
+    row[SF_MAXTARGETS] = 0
+    row[SF_DMGCLASS] = 0
+    row[SF_PREVENTION] = 0
+    row[SF_SCHOOL] = 1
+    return row
+
+
+def build_skeleton_buff_row(spells, base, spec):
+    """Real buff spell cast directly on the summoned skeleton creature by
+    the Eluna hook - not a SpellMod, a normal aura applied to that Unit."""
+    row = list(base)
+    row[SPELL_ID_FIELD] = spec['spell_id']
+    row[SF_CATEGORY] = row[SF_DISPEL] = row[SF_MECHANIC] = 0
+    for i in range(SF_ATTR0, SF_ATTR0 + 8):
+        row[i] = 0
+    for i in range(SF_STANCES, SF_STANCES + 4):
+        row[i] = 0
+    row[SF_TARGETS] = 0
+    row[SF_CASTTIME] = 1
+    row[SF_RECOVERY] = row[SF_CATRECOVERY] = 0
+    row[SF_PROCFLAGS] = row[SF_PROCCHARGES] = 0
+    row[SF_PROCCHANCE] = 101
+    row[SF_MAXLEVEL] = row[SF_BASELEVEL] = row[SF_SPELLLEVEL] = 0
+    row[SF_DURATION] = 0
+    row[SF_POWERTYPE] = row[SF_MANACOST] = 0
+    row[SF_RANGE] = 1
+    row[SF_STACK] = 0
+    row[SF_EQUIPCLASS] = -1
+    for e in range(3):
+        for field in (SF_EFFECT, SF_DIESIDES, SF_REALPPL, SF_BASEPOINTS, SF_EFFMECHANIC,
+                      SF_TARGETA, SF_TARGETB, SF_RADIUS, SF_AURA, SF_AMPLITUDE,
+                      SF_VALUEMULT, SF_CHAINTARGET, SF_ITEMTYPE, SF_MISCA, SF_MISCB,
+                      SF_TRIGGER, SF_COMBOPTS):
+            row[field + e] = 0
+        for j in range(3):
+            row[SF_CLASSMASK + e * 3 + j] = 0
+    row[SF_EFFECT] = 6
+    row[SF_DIESIDES] = 1
+    row[SF_AURA] = 133  # MOD_INCREASE_HEALTH_PERCENT
+    row[SF_BASEPOINTS] = spec['health_pct'] - 1
+    row[SF_TARGETA] = 1
+    row[SF_EFFECT + 1] = 6
+    row[SF_DIESIDES + 1] = 1
+    row[SF_AURA + 1] = 79  # MOD_DAMAGE_PERCENT_DONE
+    row[SF_BASEPOINTS + 1] = spec['damage_pct'] - 1
+    row[SF_TARGETA + 1] = 1
+    row[SF_VISUAL] = row[SF_VISUAL + 1] = 0
+    row[SF_ICON] = spec['icon']
+    row[SF_NAME] = spells.add_string(spec['name'])
+    row[SF_RANK] = 0
+    row[SF_DESC] = spells.add_string(spec['tooltip'])
+    row[SF_TOOLTIP] = spells.add_string(spec['tooltip'])
+    row[SF_MANAPCT] = 0
+    row[SF_FAMILY] = 0
+    for i in range(SF_FAMILYFLAGS, SF_FAMILYFLAGS + 3):
+        row[i] = 0
+    row[SF_MAXTARGETS] = 0
+    row[SF_DMGCLASS] = 0
+    row[SF_PREVENTION] = 0
+    row[SF_SCHOOL] = 1
+    return row
+
+
+def emit_eq_talent_sql(talent_pack, dest):
+    lines = [
+        '-- Passive talents modifying the EQ spell pack (28_eq_spell_pack.sql).',
+        '-- GENERATED by tools/build_client_patch.py from tools/eq_talent_pack.json.',
+        '-- Do not edit by hand.',
+        '--',
+        '-- Each talent is a single-rank talent_dbc chain whose rank spell lives in',
+        '-- the patched Spell.dbc (client patch-P.mpq / server dbc/Spell.dbc). None',
+        '-- of these are in LOCKED_TALENTS, so they are purchasable with ordinary',
+        '-- Talent Points rather than Tome-of-Talents-only.',
+        '',
+    ]
+    talents = talent_pack['talents']
+    # Deletes the WHOLE reserved block (90001-90999), not just currently-defined
+    # IDs, so removing/renumbering a talent between regenerations can't leave an
+    # orphaned row pointing at a spell ID no longer in Spell.dbc.
+    lines.append('DELETE FROM `talent_dbc` WHERE `ID` BETWEEN 90001 AND 90999;')
+    lines.append('INSERT INTO `talent_dbc` (`ID`, `TabID`, `TierID`, `ColumnIndex`, `SpellRank_1`) VALUES')
+    rows = [f"    ({t['talent_id']}, 0, {t['tier']}, 0, {t['id']})" for t in talents]
+    lines.append(',\n'.join(rows) + ';')
+    lines.append('')
+    Path(dest).write_text('\n'.join(lines))
+
+
+def build_eq_talents(spells, eq_base, talent_pack):
+    """Returns the list of newly-built Spell.dbc rows for the talent pack
+    (passives + the one marker + the skeleton buff spell)."""
+    new_rows = []
+    for t in talent_pack['talents']:
+        if t.get('special') == 'skeleton_buff':
+            new_rows.append(build_marker_row(spells, eq_base, t['id'], t['name'], t['tooltip'], t['icon']))
+        else:
+            new_rows.append(build_eq_talent_row(spells, eq_base, t))
+    sb = talent_pack['skeleton_buff']
+    new_rows.append(build_skeleton_buff_row(spells, eq_base, sb))
+    return new_rows
 
 
 def emit_eq_spell_sql(pack, dest):
@@ -531,6 +768,15 @@ def main():
             spells.add_record(build_eq_spell_row(spells, eq_base, spec))
         print(f"added {len(eq_pack['spells'])} EQ pack spells to Spell.dbc")
 
+    # Passive talents that modify the EQ pack (separate manifest, optional).
+    eq_talent_path = MODULE / 'tools/eq_talent_pack.json'
+    eq_talent_pack = json.loads(eq_talent_path.read_text()) if eq_talent_path.exists() else None
+    if eq_talent_pack:
+        eq_base = spells.get_record(EQ_BASE_TEMPLATE)
+        for row in build_eq_talents(spells, eq_base, eq_talent_pack):
+            spells.add_record(row)
+        print(f"added {len(eq_talent_pack['talents']) + 1} EQ talent pack spells to Spell.dbc")
+
     manifest = json.loads((MODULE / 'tools/client_patch_manifest.json').read_text())
 
     def append_manifest_rows(dbc, entries):
@@ -610,6 +856,11 @@ def main():
         eq_sql = MODULE / 'data/sql/db-world/28_eq_spell_pack.sql'
         emit_eq_spell_sql(eq_pack, eq_sql)
         print(f'wrote {eq_sql}')
+
+    if eq_talent_pack:
+        eq_talent_sql = MODULE / 'data/sql/db-world/30_eq_talent_pack.sql'
+        emit_eq_talent_sql(eq_talent_pack, eq_talent_sql)
+        print(f'wrote {eq_talent_sql}')
 
 
 if __name__ == '__main__':
