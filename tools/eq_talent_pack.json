@@ -1,138 +1,520 @@
 {
-  "_comment": "Passive talents that modify the EQ spell pack (tools/eq_spell_pack.json). Consumed by tools/build_client_patch.py alongside the spell pack. Each talent is a single-rank talent_dbc chain (IDs 90001+, above the real Talent.dbc's max of 2285) whose one rank is a passive spell (IDs 994001+) carrying up to 3 native SpellMod aura effects (SPELL_AURA_ADD_PCT_MODIFIER=108 / SPELL_AURA_ADD_FLAT_MODIFIER=107), targeted at exactly one EQ spell via SpellFamilyName=220 + a classmask bit matching that spell's `family_bit` in eq_spell_pack.json (verified against src/server/game/Spells/SpellInfo.cpp's IsAffected() and SpellAuraEffects.cpp's IsAffectedOnSpell()). 'op' is the raw SPELLMOD_* enum from src/server/game/Spells/SpellDefines.h. IMPORTANT, verified the hard way: only a subset of SpellModOps actually apply to a fresh, one-off cast (checked every ApplySpellMod() call site in src/server/game/Spells/Spell.cpp, Entities/Unit/Unit.cpp, Entities/Player/Player.cpp) - DURATION(1), RANGE(5), CASTING_TIME(10), COOLDOWN(11), DAMAGE(0)/DOT(22) [these two verified via Unit::SpellDamageBonusDone/SpellHealingBonusDone, which is also how a periodic HEAL's tick amount is modified - DOT covers both DoTs and HoTs], COST(14). SPELLMOD_EFFECT1/2/3(3/12/23) do NOT work here despite existing in the enum - AuraEffect::ApplySpellMod (SpellAuraEffects.cpp:813) only uses them to recalculate an aura that is ALREADY a passive/permanent aura on the caster (aura->IsPassive()||aura->IsPermanent()), which none of our spells are (they're timed, targeted, one-off casts) - so any non-damage/heal aura magnitude (a slow %, a flat stat bonus, a resource-regen amount, a CC's own strength) has NO generic native modifier path for a fresh cast. Every talent below is designed around only the verified ops; several base spells in eq_spell_pack.json were given an extra DORMANT effect slot (EffectBasePoints stored as -1, i.e. true zero) whose *type* is already a real SCHOOL_DAMAGE/PERIODIC_DAMAGE/PERIODIC_HEAL effect so a talent's flat DAMAGE/DOT modifier can 'activate' it (0 + delta = delta) without inventing a new mechanic. 'special':'skeleton_buff' is the one talent that isn't a SpellMod at all - see lua/SpellDraft/spelldraft_eq_talents.lua (buffing a summoned Guardian's own stats isn't reachable through the caster-side SpellMod system either, verified against SpellEffects.cpp's EffectSummonType). Talents are NOT added to LOCKED_TALENTS - purchasable with ordinary Talent Points. Avatar (pure Strength/Agility/Attack Power stat effects, no damage/heal effect, already using all 3 of its effect slots) has no non-duration lever available under these constraints and so gets exactly one talent instead of four - flagged to the user rather than silently faked.",
-
+  "_comment": "Passive talents that modify the EQ spell pack (tools/eq_spell_pack.json). Consumed by tools/build_client_patch.py alongside the spell pack. Two kinds of talent: (1) 'mods' - a single-rank talent_dbc chain (IDs 90001+, above real Talent.dbc's max of 2285) whose rank is a passive spell (994001+) carrying up to 3 native SpellMod aura effects (SPELL_AURA_ADD_PCT_MODIFIER=108 / ADD_FLAT_MODIFIER=107), targeted at exactly one EQ spell via SpellFamilyName=220 + a classmask bit matching that spell's `family_bit` in eq_spell_pack.json (verified against SpellInfo.cpp's IsAffected() and SpellAuraEffects.cpp's IsAffectedOnSpell()). 'op' is the raw SPELLMOD_* enum from src/server/game/Spells/SpellDefines.h. IMPORTANT, verified the hard way: only a subset of SpellModOps actually apply to a fresh, one-off cast (checked every ApplySpellMod() call site in Spell.cpp/Unit.cpp/Player.cpp) - DURATION(1), RANGE(5), CASTING_TIME(10), COOLDOWN(11), DAMAGE(0)/DOT(22) [also covers periodic HEAL], COST(14) work. SPELLMOD_EFFECT1/2/3(3/12/23) do NOT work despite existing in the enum - AuraEffect::ApplySpellMod (SpellAuraEffects.cpp:813) only recalculates an aura that is ALREADY passive/permanent on the caster, which none of our one-off casts are - so a non-damage/heal aura magnitude (a slow %, a stat bonus, a resource-regen amount) has no generic modifier path on a fresh cast. Several base spells gained a DORMANT effect slot (EffectBasePoints -1, i.e. true zero, but a real SCHOOL_DAMAGE/PERIODIC_DAMAGE/PERIODIC_HEAL effect type) so a flat DAMAGE/DOT modifier can activate it. (2) 'pet_buff' - for the Cavorting Bones skeleton (a permanent SPELL_EFFECT_SUMMON_PET, not a temp Guardian - see the spell's own entry and the C++ patch in src/SpellDraft.cpp's OnPlayerBeforeGuardianInitStatsForLevel forcing PetType::SUMMON_PET for any owner class). The talent's passive spell here is a SPELL_AURA_DUMMY marker (required shape - SpellMgr.cpp's spell_pet_auras loader rejects anything else); `spell_pet_auras` (spell, effectId, pet, aura) then makes the engine natively cast `pet_buff.buff_spell_id` directly onto the matching pet (Unit::AddPetAura/CastPetAura, SpellAuraEffects.cpp:5176) whenever the owner has the marker - reactively, even on an already-summoned pet, and removed again on respec. The buff spell itself uses plain stat/damage auras (not SpellMod - a Pet is never target->IsPlayer(), so SpellModifier registration flatly does not apply to it). Talents are NOT added to LOCKED_TALENTS - purchasable with ordinary Talent Points. Avatar (pure Strength/Agility/Attack Power stat effects, no damage/heal effect, already using all 3 of its effect slots) has no non-duration lever available under the 'mods' constraints and so gets exactly one talent instead of four - flagged to the user rather than silently faked.",
   "talents": [
-    { "id": 994001, "talent_id": 90001, "target_bit": 0, "tier": 3,
-      "name": "Vicious Ensnare", "icon": 163,
+    {
+      "id": 994001,
+      "talent_id": 90001,
+      "target_bit": 0,
+      "tier": 3,
+      "name": "Vicious Ensnare",
+      "icon": 163,
       "tooltip": "Ensnare now also inflicts a bleeding wound, dealing damage over time.",
-      "mods": [{"op": 22, "kind": "flat", "value": 51}] },
-    { "id": 994002, "talent_id": 90002, "target_bit": 0, "tier": 3,
-      "name": "Clinging Ensnare", "icon": 163,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "flat",
+          "value": 51
+        }
+      ]
+    },
+    {
+      "id": 994002,
+      "talent_id": 90002,
+      "target_bit": 0,
+      "tier": 3,
+      "name": "Clinging Ensnare",
+      "icon": 163,
       "tooltip": "Increases the duration of Ensnare by 100%.",
-      "mods": [{"op": 1, "kind": "pct", "value": 100}] },
-    { "id": 994003, "talent_id": 90003, "target_bit": 0, "tier": 3,
-      "name": "Ensnaring Reach", "icon": 163,
+      "mods": [
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": 100
+        }
+      ]
+    },
+    {
+      "id": 994003,
+      "talent_id": 90003,
+      "target_bit": 0,
+      "tier": 3,
+      "name": "Ensnaring Reach",
+      "icon": 163,
       "tooltip": "Increases the range of Ensnare by 75%.",
-      "mods": [{"op": 5, "kind": "pct", "value": 75}] },
-    { "id": 994004, "talent_id": 90004, "target_bit": 0, "tier": 3,
-      "name": "Brutal Ensnare", "icon": 163,
+      "mods": [
+        {
+          "op": 5,
+          "kind": "pct",
+          "value": 75
+        }
+      ]
+    },
+    {
+      "id": 994004,
+      "talent_id": 90004,
+      "target_bit": 0,
+      "tier": 3,
+      "name": "Brutal Ensnare",
+      "icon": 163,
       "tooltip": "Ensnare's bleeding wound deals twice as much damage, but its duration is reduced by 40%.",
-      "mods": [{"op": 22, "kind": "flat", "value": 101}, {"op": 1, "kind": "pct", "value": -40}] },
-
-    { "id": 994005, "talent_id": 90005, "target_bit": 7, "tier": 4,
-      "name": "Lasting Mesmerize", "icon": 96,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "flat",
+          "value": 101
+        },
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": -40
+        }
+      ]
+    },
+    {
+      "id": 994005,
+      "talent_id": 90005,
+      "target_bit": 7,
+      "tier": 4,
+      "name": "Lasting Mesmerize",
+      "icon": 96,
       "tooltip": "Increases the duration of Mesmerize by 50%.",
-      "mods": [{"op": 1, "kind": "pct", "value": 50}] },
-    { "id": 994006, "talent_id": 90006, "target_bit": 7, "tier": 4,
-      "name": "Distant Mesmerize", "icon": 96,
+      "mods": [
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": 50
+        }
+      ]
+    },
+    {
+      "id": 994006,
+      "talent_id": 90006,
+      "target_bit": 7,
+      "tier": 4,
+      "name": "Distant Mesmerize",
+      "icon": 96,
       "tooltip": "Increases the range of Mesmerize by 50%.",
-      "mods": [{"op": 5, "kind": "pct", "value": 50}] },
-    { "id": 994007, "talent_id": 90007, "target_bit": 7, "tier": 4,
-      "name": "Tormenting Mesmerize", "icon": 96,
+      "mods": [
+        {
+          "op": 5,
+          "kind": "pct",
+          "value": 50
+        }
+      ]
+    },
+    {
+      "id": 994007,
+      "talent_id": 90007,
+      "target_bit": 7,
+      "tier": 4,
+      "name": "Tormenting Mesmerize",
+      "icon": 96,
       "tooltip": "Mesmerize now also deals shadow damage every few seconds to the mesmerized target.",
-      "mods": [{"op": 22, "kind": "flat", "value": 81}] },
-    { "id": 994008, "talent_id": 90008, "target_bit": 7, "tier": 4,
-      "name": "Fragile Mesmerize", "icon": 96,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "flat",
+          "value": 81
+        }
+      ]
+    },
+    {
+      "id": 994008,
+      "talent_id": 90008,
+      "target_bit": 7,
+      "tier": 4,
+      "name": "Fragile Mesmerize",
+      "icon": 96,
       "tooltip": "Doubles the duration of Mesmerize, but halves its range.",
-      "mods": [{"op": 1, "kind": "pct", "value": 100}, {"op": 5, "kind": "pct", "value": -50}] },
-
-    { "id": 994009, "talent_id": 90009, "target_bit": 3, "tier": 8,
-      "name": "Lasting Domination", "icon": 1500,
+      "mods": [
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": 100
+        },
+        {
+          "op": 5,
+          "kind": "pct",
+          "value": -50
+        }
+      ]
+    },
+    {
+      "id": 994009,
+      "talent_id": 90009,
+      "target_bit": 3,
+      "tier": 8,
+      "name": "Lasting Domination",
+      "icon": 1500,
       "tooltip": "Increases the duration of Charm by 75%.",
-      "mods": [{"op": 1, "kind": "pct", "value": 75}] },
-    { "id": 994010, "talent_id": 90010, "target_bit": 3, "tier": 8,
-      "name": "Quick Subjugation", "icon": 1500,
+      "mods": [
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": 75
+        }
+      ]
+    },
+    {
+      "id": 994010,
+      "talent_id": 90010,
+      "target_bit": 3,
+      "tier": 8,
+      "name": "Quick Subjugation",
+      "icon": 1500,
       "tooltip": "Reduces the cast time of Charm by 50%.",
-      "mods": [{"op": 10, "kind": "pct", "value": -50}] },
-    { "id": 994011, "talent_id": 90011, "target_bit": 3, "tier": 8,
-      "name": "Enduring Bond", "icon": 1500,
+      "mods": [
+        {
+          "op": 10,
+          "kind": "pct",
+          "value": -50
+        }
+      ]
+    },
+    {
+      "id": 994011,
+      "talent_id": 90011,
+      "target_bit": 3,
+      "tier": 8,
+      "name": "Enduring Bond",
+      "icon": 1500,
       "tooltip": "The target of your Charm periodically heals itself while enthralled.",
-      "mods": [{"op": 22, "kind": "flat", "value": 101}] },
-    { "id": 994012, "talent_id": 90012, "target_bit": 3, "tier": 8,
-      "name": "Domineering Presence", "icon": 1500,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "flat",
+          "value": 101
+        }
+      ]
+    },
+    {
+      "id": 994012,
+      "talent_id": 90012,
+      "target_bit": 3,
+      "tier": 8,
+      "name": "Domineering Presence",
+      "icon": 1500,
       "tooltip": "Doubles the range of Charm, but reduces its duration by 30%.",
-      "mods": [{"op": 5, "kind": "pct", "value": 100}, {"op": 1, "kind": "pct", "value": -30}] },
-
-    { "id": 994013, "talent_id": 90013, "target_bit": 4, "tier": 5,
-      "name": "Suffocating Darkness", "icon": 234,
+      "mods": [
+        {
+          "op": 5,
+          "kind": "pct",
+          "value": 100
+        },
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": -30
+        }
+      ]
+    },
+    {
+      "id": 994013,
+      "talent_id": 90013,
+      "target_bit": 4,
+      "tier": 5,
+      "name": "Suffocating Darkness",
+      "icon": 234,
       "tooltip": "Increases the damage over time from Engulfing Darkness by 50%.",
-      "mods": [{"op": 22, "kind": "pct", "value": 50}] },
-    { "id": 994014, "talent_id": 90014, "target_bit": 4, "tier": 5,
-      "name": "Reaching Darkness", "icon": 234,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "pct",
+          "value": 50
+        }
+      ]
+    },
+    {
+      "id": 994014,
+      "talent_id": 90014,
+      "target_bit": 4,
+      "tier": 5,
+      "name": "Reaching Darkness",
+      "icon": 234,
       "tooltip": "Increases the range of Engulfing Darkness by 50%.",
-      "mods": [{"op": 5, "kind": "pct", "value": 50}] },
-    { "id": 994015, "talent_id": 90015, "target_bit": 4, "tier": 5,
-      "name": "Lingering Darkness", "icon": 234,
+      "mods": [
+        {
+          "op": 5,
+          "kind": "pct",
+          "value": 50
+        }
+      ]
+    },
+    {
+      "id": 994015,
+      "talent_id": 90015,
+      "target_bit": 4,
+      "tier": 5,
+      "name": "Lingering Darkness",
+      "icon": 234,
       "tooltip": "Increases the duration of Engulfing Darkness by 100%.",
-      "mods": [{"op": 1, "kind": "pct", "value": 100}] },
-    { "id": 994016, "talent_id": 90016, "target_bit": 4, "tier": 5,
-      "name": "Reckless Darkness", "icon": 234,
+      "mods": [
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": 100
+        }
+      ]
+    },
+    {
+      "id": 994016,
+      "talent_id": 90016,
+      "target_bit": 4,
+      "tier": 5,
+      "name": "Reckless Darkness",
+      "icon": 234,
       "tooltip": "Doubles the damage over time from Engulfing Darkness, but reduces its duration by 40%.",
-      "mods": [{"op": 22, "kind": "pct", "value": 100}, {"op": 1, "kind": "pct", "value": -40}] },
-
-    { "id": 994017, "talent_id": 90017, "target_bit": 9, "tier": 4,
-      "name": "Grave-Bound Vigor", "icon": 61,
-      "tooltip": "Increases the duration of your Cavorting Bones skeleton by 100%.",
-      "mods": [{"op": 1, "kind": "pct", "value": 100}] },
-    { "id": 994018, "talent_id": 90018, "target_bit": 9, "tier": 4,
-      "name": "Hasty Rites", "icon": 61,
-      "tooltip": "Reduces the cast time of Cavorting Bones by 50%.",
-      "mods": [{"op": 10, "kind": "pct", "value": -50}] },
-    { "id": 994019, "talent_id": 90019, "target_bit": 9, "tier": 4,
-      "name": "Bone Splinters", "icon": 61,
-      "tooltip": "Animating your skeletal servant now also blasts nearby enemies with bone shrapnel.",
-      "mods": [{"op": 0, "kind": "flat", "value": 351}] },
-    { "id": 994020, "talent_id": 90020, "target_bit": 9, "tier": 4,
-      "name": "Skeletal Champion", "icon": 61, "special": "skeleton_buff",
-      "tooltip": "Your Cavorting Bones summon a far sturdier, harder-hitting champion of bone." },
-
-    { "id": 994021, "talent_id": 90021, "target_bit": 10, "tier": 6,
-      "name": "Efficient Lich", "icon": 208,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "pct",
+          "value": 100
+        },
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": -40
+        }
+      ]
+    },
+    {
+      "id": 994017,
+      "talent_id": 90017,
+      "tier": 4,
+      "name": "Rigorous Mortis",
+      "icon": 685,
+      "tooltip": "Increases the health of your Cavorting Bones skeleton by 30%.",
+      "pet_buff": {
+        "creature_entry": 990100,
+        "buff_spell_id": 994117,
+        "buff_name": "Rigorous Mortis",
+        "buff_tooltip": "Increased health.",
+        "buff_icon": 685,
+        "effects": [
+          {
+            "aura": 133,
+            "value": 31
+          }
+        ]
+      }
+    },
+    {
+      "id": 994018,
+      "talent_id": 90018,
+      "tier": 4,
+      "name": "Grave Fury",
+      "icon": 1680,
+      "tooltip": "Increases the damage done by your Cavorting Bones skeleton by 30%.",
+      "pet_buff": {
+        "creature_entry": 990100,
+        "buff_spell_id": 994118,
+        "buff_name": "Grave Fury",
+        "buff_tooltip": "Increased damage.",
+        "buff_icon": 1680,
+        "effects": [
+          {
+            "aura": 79,
+            "value": 31
+          }
+        ]
+      }
+    },
+    {
+      "id": 994019,
+      "talent_id": 90019,
+      "tier": 4,
+      "name": "Ossified Hide",
+      "icon": 199,
+      "tooltip": "Increases all resistances of your Cavorting Bones skeleton by 150.",
+      "pet_buff": {
+        "creature_entry": 990100,
+        "buff_spell_id": 994119,
+        "buff_name": "Ossified Hide",
+        "buff_tooltip": "Increased resistances.",
+        "buff_icon": 199,
+        "effects": [
+          {
+            "aura": 22,
+            "value": 151,
+            "misc_a": 127
+          }
+        ]
+      }
+    },
+    {
+      "id": 994020,
+      "talent_id": 90020,
+      "tier": 4,
+      "name": "Frenzied Bones",
+      "icon": 515,
+      "tooltip": "Increases the attack speed of your Cavorting Bones skeleton by 30%.",
+      "pet_buff": {
+        "creature_entry": 990100,
+        "buff_spell_id": 994120,
+        "buff_name": "Frenzied Bones",
+        "buff_tooltip": "Increased attack speed.",
+        "buff_icon": 515,
+        "effects": [
+          {
+            "aura": 9,
+            "value": -31
+          }
+        ]
+      }
+    },
+    {
+      "id": 994021,
+      "talent_id": 90021,
+      "target_bit": 10,
+      "tier": 6,
+      "name": "Efficient Lich",
+      "icon": 208,
       "tooltip": "Reduces the self-inflicted damage from Lich by 40%.",
-      "mods": [{"op": 22, "kind": "pct", "value": -40}] },
-    { "id": 994022, "talent_id": 90022, "target_bit": 10, "tier": 6,
-      "name": "Reckless Lich", "icon": 208,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "pct",
+          "value": -40
+        }
+      ]
+    },
+    {
+      "id": 994022,
+      "talent_id": 90022,
+      "target_bit": 10,
+      "tier": 6,
+      "name": "Reckless Lich",
+      "icon": 208,
       "tooltip": "Increases the self-inflicted damage from Lich by 60%.",
-      "mods": [{"op": 22, "kind": "pct", "value": 60}] },
-    { "id": 994023, "talent_id": 90023, "target_bit": 10, "tier": 6,
-      "name": "Eternal Lich", "icon": 208,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "pct",
+          "value": 60
+        }
+      ]
+    },
+    {
+      "id": 994023,
+      "talent_id": 90023,
+      "target_bit": 10,
+      "tier": 6,
+      "name": "Eternal Lich",
+      "icon": 208,
       "tooltip": "Increases the duration of Lich by 100%.",
-      "mods": [{"op": 1, "kind": "pct", "value": 100}] },
-    { "id": 994024, "talent_id": 90024, "target_bit": 10, "tier": 6,
-      "name": "Fleeting Lich", "icon": 208,
+      "mods": [
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": 100
+        }
+      ]
+    },
+    {
+      "id": 994024,
+      "talent_id": 90024,
+      "target_bit": 10,
+      "tier": 6,
+      "name": "Fleeting Lich",
+      "icon": 208,
       "tooltip": "Halves the duration of Lich, but reduces its self-inflicted damage by 60%.",
-      "mods": [{"op": 1, "kind": "pct", "value": -50}, {"op": 22, "kind": "pct", "value": -60}] },
-
-    { "id": 994025, "talent_id": 90025, "target_bit": 13, "tier": 9,
-      "name": "Enduring Avatar", "icon": 332,
+      "mods": [
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": -50
+        },
+        {
+          "op": 22,
+          "kind": "pct",
+          "value": -60
+        }
+      ]
+    },
+    {
+      "id": 994025,
+      "talent_id": 90025,
+      "target_bit": 13,
+      "tier": 9,
+      "name": "Enduring Avatar",
+      "icon": 332,
       "tooltip": "Increases the duration of Avatar by 100%.",
-      "mods": [{"op": 1, "kind": "pct", "value": 100}] },
-
-    { "id": 994029, "talent_id": 90029, "target_bit": 22, "tier": 8,
-      "name": "Ravenous Touch", "icon": 546,
+      "mods": [
+        {
+          "op": 1,
+          "kind": "pct",
+          "value": 100
+        }
+      ]
+    },
+    {
+      "id": 994029,
+      "talent_id": 90029,
+      "target_bit": 22,
+      "tier": 8,
+      "name": "Ravenous Touch",
+      "icon": 546,
       "tooltip": "Increases the life drained by Leech Touch by 40%.",
-      "mods": [{"op": 0, "kind": "pct", "value": 40}] },
-    { "id": 994030, "talent_id": 90030, "target_bit": 22, "tier": 8,
-      "name": "Quickened Touch", "icon": 546,
+      "mods": [
+        {
+          "op": 0,
+          "kind": "pct",
+          "value": 40
+        }
+      ]
+    },
+    {
+      "id": 994030,
+      "talent_id": 90030,
+      "target_bit": 22,
+      "tier": 8,
+      "name": "Quickened Touch",
+      "icon": 546,
       "tooltip": "Reduces the cooldown of Leech Touch by 50%.",
-      "mods": [{"op": 11, "kind": "pct", "value": -50}] },
-    { "id": 994031, "talent_id": 90031, "target_bit": 22, "tier": 8,
-      "name": "Spreading Blight", "icon": 546,
+      "mods": [
+        {
+          "op": 11,
+          "kind": "pct",
+          "value": -50
+        }
+      ]
+    },
+    {
+      "id": 994031,
+      "talent_id": 90031,
+      "target_bit": 22,
+      "tier": 8,
+      "name": "Spreading Blight",
+      "icon": 546,
       "tooltip": "Leech Touch now leaves behind a lingering wound that deals damage over time.",
-      "mods": [{"op": 22, "kind": "flat", "value": 181}] },
-    { "id": 994032, "talent_id": 90032, "target_bit": 22, "tier": 8,
-      "name": "Reckless Touch", "icon": 546,
+      "mods": [
+        {
+          "op": 22,
+          "kind": "flat",
+          "value": 181
+        }
+      ]
+    },
+    {
+      "id": 994032,
+      "talent_id": 90032,
+      "target_bit": 22,
+      "tier": 8,
+      "name": "Reckless Touch",
+      "icon": 546,
       "tooltip": "Increases the life drained by Leech Touch by 80%, but doubles its cooldown.",
-      "mods": [{"op": 0, "kind": "pct", "value": 80}, {"op": 11, "kind": "pct", "value": 100}] }
-  ],
-
-  "skeleton_buff": {
-    "spell_id": 994090,
-    "creature_entry": 11200,
-    "name": "Skeletal Champion's Vigor",
-    "tooltip": "A hardier, harder-hitting skeleton.",
-    "icon": 61,
-    "health_pct": 100,
-    "damage_pct": 100
-  }
+      "mods": [
+        {
+          "op": 0,
+          "kind": "pct",
+          "value": 80
+        },
+        {
+          "op": 11,
+          "kind": "pct",
+          "value": 100
+        }
+      ]
+    }
+  ]
 }

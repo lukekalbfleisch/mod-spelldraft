@@ -5,6 +5,8 @@
 #include "ScriptDefines/PlayerScript.h"
 #include "ScriptDefines/WorldScript.h"
 #include "Spell.h"
+#include "PetDefines.h"
+#include "TemporarySummon.h"
 
 #include <vector>
 
@@ -115,6 +117,21 @@ public:
             return;
 
         UpdateBaseMana(player);
+    }
+
+    // Guardian::InitStatsForLevel() (Pet.cpp) only assigns PetType::SUMMON_PET
+    // for Warlock/Shaman/DK/Mage owners, HUNTER_PET for Hunters, and otherwise
+    // leaves it MAX_PET_TYPE (a bare log error, not a hard failure, but the pet
+    // never gets the SUMMON_PET stat-scaling path). This is the intended
+    // extension point for exactly that case: any class can draft Cavorting
+    // Bones, so the skeleton always needs to be forced into the SUMMON_PET
+    // path regardless of the caster's real class.
+    void OnPlayerBeforeGuardianInitStatsForLevel(Player* /*player*/, Guardian* guardian, CreatureTemplate const* cinfo, PetType& petType) override
+    {
+        if (!sConfigMgr->GetOption<bool>("SpellDraft.Enable", true))
+            return;
+        if (cinfo->Entry == 990100 && guardian->IsPet()) // Cavorting Bones skeleton
+            petType = SUMMON_PET;
     }
 };
 

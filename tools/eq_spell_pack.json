@@ -262,28 +262,20 @@
       "name": "Cavorting Bones",
       "level": 20,
       "rarity": 3,
-      "tooltip": "Animates a skeletal servant to fight for you for $d.",
+      "tooltip": "Animates a skeletal servant to permanently fight at your side.",
       "icon": 61,
       "visual": 634,
       "school": 32,
       "mechanic": 0,
       "range_idx": 1,
       "cast_idx": 14,
-      "duration_idx": 41,
+      "duration_idx": 0,
       "effects": [
         {
-          "type": 28,
+          "type": 56,
           "value": 0,
-          "misc_a": 11200,
-          "misc_b": 61,
-          "target_a": 17
-        },
-        {
-          "type": 2,
-          "value": 0,
-          "target_a": 22,
-          "target_b": 15,
-          "radius_idx": 9
+          "misc_a": 990100,
+          "target_a": 1
         }
       ],
       "family_bit": 9
@@ -994,6 +986,59 @@
         }
       ],
       "family_bit": 31
+    },
+    {
+      "id": 993037,
+      "name": "Bone Shard",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Hurls a shard of bone at the enemy.",
+      "icon": 313,
+      "visual": 8629,
+      "school": 1,
+      "mechanic": 0,
+      "range_idx": 3,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "cooldown": 6000,
+      "effects": [
+        {
+          "type": 2,
+          "value": 250,
+          "die_sides": 60,
+          "target_a": 6
+        }
+      ]
+    },
+    {
+      "id": 993038,
+      "name": "Rattling Roar",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Forces the target to attack the skeleton.",
+      "icon": 24,
+      "visual": 34,
+      "school": 1,
+      "mechanic": 0,
+      "range_idx": 4,
+      "cast_idx": 1,
+      "duration_idx": 27,
+      "cooldown": 8000,
+      "effects": [
+        {
+          "type": 114,
+          "value": 0,
+          "target_a": 6
+        },
+        {
+          "type": 6,
+          "aura": 11,
+          "value": 0,
+          "target_a": 6
+        }
+      ]
     }
   ]
 }

@@ -221,11 +221,12 @@ def build_eq_talent_row(spells, base, spec):
 
 
 def build_marker_row(spells, base, spell_id, name, tooltip, icon):
-    """A minimal passive dummy-aura spell with no mechanical effect of its own
-    - used as an aura marker a hook can check via player:HasAura(id), for the
-    one talent (Skeletal Champion) that needs Eluna scripting instead of a
-    pure SpellMod because it must buff a summoned creature's own stats, not
-    a spell the caster casts (see lua/SpellDraft/spelldraft_eq_talents.lua)."""
+    """A minimal passive spell whose only effect is SPELL_AURA_DUMMY (4) - the
+    exact shape spell_pet_auras requires of its trigger spell (SpellMgr.cpp's
+    loader rejects anything else: "does not have dummy aura or dummy effect").
+    Used as the learned talent passive for every pet-buff talent; the actual
+    buff lives in a separate spell applied to the pet (see build_pet_buff_row
+    and emit_pet_auras_sql)."""
     row = list(base)
     row[SPELL_ID_FIELD] = spell_id
     row[SF_CATEGORY] = row[SF_DISPEL] = row[SF_MECHANIC] = 0
@@ -252,11 +253,10 @@ def build_marker_row(spells, base, spell_id, name, tooltip, icon):
             row[field + e] = 0
         for j in range(3):
             row[SF_CLASSMASK + e * 3 + j] = 0
-    # Effect1: harmless dummy aura (34 = MOD_INCREASE_HEALTH, value 0) so the
-    # spell is a real, visible, learnable passive rather than a no-op.
+    # Effect1: SPELL_AURA_DUMMY (4) - required shape for spell_pet_auras.
     row[SF_EFFECT] = 6
     row[SF_DIESIDES] = 1
-    row[SF_AURA] = 34
+    row[SF_AURA] = 4
     row[SF_BASEPOINTS] = -1
     row[SF_TARGETA] = 1
     row[SF_VISUAL] = row[SF_VISUAL + 1] = 0
@@ -276,9 +276,14 @@ def build_marker_row(spells, base, spell_id, name, tooltip, icon):
     return row
 
 
-def build_skeleton_buff_row(spells, base, spec):
-    """Real buff spell cast directly on the summoned skeleton creature by
-    the Eluna hook - not a SpellMod, a normal aura applied to that Unit."""
+def build_pet_buff_row(spells, base, spec):
+    """A real aura spell, self-targeted (TargetA=1), cast directly onto a pet
+    Unit by the engine's native spell_pet_auras pipeline (Unit::CastPetAura ->
+    CastSpell(this, auraId, true) - "this" is the pet, so effect target 1
+    resolves to the pet itself). This is NOT a SpellMod: SpellModifier
+    registration requires target->IsPlayer() (AuraEffect::ApplySpellMod,
+    SpellAuraEffects.cpp:813), which a Pet never is - so these must be plain
+    stat/damage auras, generically applicable to any Unit."""
     row = list(base)
     row[SPELL_ID_FIELD] = spec['spell_id']
     row[SF_CATEGORY] = row[SF_DISPEL] = row[SF_MECHANIC] = 0
@@ -305,16 +310,13 @@ def build_skeleton_buff_row(spells, base, spec):
             row[field + e] = 0
         for j in range(3):
             row[SF_CLASSMASK + e * 3 + j] = 0
-    row[SF_EFFECT] = 6
-    row[SF_DIESIDES] = 1
-    row[SF_AURA] = 133  # MOD_INCREASE_HEALTH_PERCENT
-    row[SF_BASEPOINTS] = spec['health_pct'] - 1
-    row[SF_TARGETA] = 1
-    row[SF_EFFECT + 1] = 6
-    row[SF_DIESIDES + 1] = 1
-    row[SF_AURA + 1] = 79  # MOD_DAMAGE_PERCENT_DONE
-    row[SF_BASEPOINTS + 1] = spec['damage_pct'] - 1
-    row[SF_TARGETA + 1] = 1
+    for i, ef in enumerate(spec['effects'][:3]):
+        row[SF_EFFECT + i] = 6
+        row[SF_DIESIDES + i] = 1
+        row[SF_AURA + i] = ef['aura']
+        row[SF_BASEPOINTS + i] = ef['value'] - 1
+        row[SF_TARGETA + i] = ef.get('target_a', 1)
+        row[SF_MISCA + i] = ef.get('misc_a', 0)
     row[SF_VISUAL] = row[SF_VISUAL + 1] = 0
     row[SF_ICON] = spec['icon']
     row[SF_NAME] = spells.add_string(spec['name'])
@@ -352,21 +354,41 @@ def emit_eq_talent_sql(talent_pack, dest):
     lines.append('INSERT INTO `talent_dbc` (`ID`, `TabID`, `TierID`, `ColumnIndex`, `SpellRank_1`) VALUES')
     rows = [f"    ({t['talent_id']}, 0, {t['tier']}, 0, {t['id']})" for t in talents]
     lines.append(',\n'.join(rows) + ';')
+
+    pet_talents = [t for t in talents if 'pet_buff' in t]
+    if pet_talents:
+        lines += [
+            '',
+            '-- Native pet-buff pipeline (Unit::AddPetAura / CastPetAura): when the',
+            '-- owner has the dummy-aura talent passive, `aura` is cast directly on',
+            '-- their pet (filtered to `pet` creature entry, 0 = any), reactively -',
+            '-- applies immediately even if the pet is already summoned, and removed',
+            '-- again if the talent is respecced away.',
+            f"DELETE FROM `spell_pet_auras` WHERE `spell` IN ({', '.join(str(t['id']) for t in pet_talents)});",
+            'INSERT INTO `spell_pet_auras` (`spell`, `effectId`, `pet`, `aura`) VALUES',
+        ]
+        rows = [f"    ({t['id']}, 0, {t['pet_buff']['creature_entry']}, {t['pet_buff']['buff_spell_id']})"
+                for t in pet_talents]
+        lines.append(',\n'.join(rows) + ';')
+
     lines.append('')
     Path(dest).write_text('\n'.join(lines))
 
 
 def build_eq_talents(spells, eq_base, talent_pack):
-    """Returns the list of newly-built Spell.dbc rows for the talent pack
-    (passives + the one marker + the skeleton buff spell)."""
+    """Returns the list of newly-built Spell.dbc rows for the talent pack."""
     new_rows = []
     for t in talent_pack['talents']:
-        if t.get('special') == 'skeleton_buff':
+        if 'pet_buff' in t:
             new_rows.append(build_marker_row(spells, eq_base, t['id'], t['name'], t['tooltip'], t['icon']))
+            pb = t['pet_buff']
+            new_rows.append(build_pet_buff_row(spells, eq_base, {
+                'spell_id': pb['buff_spell_id'], 'name': pb.get('buff_name', t['name']),
+                'tooltip': pb.get('buff_tooltip', t['tooltip']), 'icon': pb.get('buff_icon', t['icon']),
+                'effects': pb['effects'],
+            }))
         else:
             new_rows.append(build_eq_talent_row(spells, eq_base, t))
-    sb = talent_pack['skeleton_buff']
-    new_rows.append(build_skeleton_buff_row(spells, eq_base, sb))
     return new_rows
 
 
@@ -773,9 +795,11 @@ def main():
     eq_talent_pack = json.loads(eq_talent_path.read_text()) if eq_talent_path.exists() else None
     if eq_talent_pack:
         eq_base = spells.get_record(EQ_BASE_TEMPLATE)
-        for row in build_eq_talents(spells, eq_base, eq_talent_pack):
+        rows = build_eq_talents(spells, eq_base, eq_talent_pack)
+        for row in rows:
             spells.add_record(row)
-        print(f"added {len(eq_talent_pack['talents']) + 1} EQ talent pack spells to Spell.dbc")
+        print(f"added {len(rows)} EQ talent pack spells to Spell.dbc "
+              f"({len(eq_talent_pack['talents'])} talents)")
 
     manifest = json.loads((MODULE / 'tools/client_patch_manifest.json').read_text())
 

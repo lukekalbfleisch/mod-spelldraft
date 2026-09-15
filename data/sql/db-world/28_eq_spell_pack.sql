@@ -10,7 +10,7 @@ DELETE FROM `dbc_skillline` WHERE `ID` = 999;
 INSERT INTO `dbc_skillline` (`ID`, `CategoryID`, `DisplayName_Lang_enUS`) VALUES
     (999, 7, 'Forgotten Tomes');
 
-DELETE FROM `dbc_skilllineability` WHERE `Spell` IN (993001, 993002, 993003, 993004, 993005, 993006, 993007, 993008, 993009, 993010, 993011, 993012, 993013, 993014, 993015, 993016, 993017, 993018, 993019, 993020, 993021, 993022, 993023, 993024, 993025, 993026, 993027, 993028, 993029, 993030, 993031, 993032, 993033, 993034, 993035, 993036);
+DELETE FROM `dbc_skilllineability` WHERE `Spell` IN (993001, 993002, 993003, 993004, 993005, 993006, 993007, 993008, 993009, 993010, 993011, 993012, 993013, 993014, 993015, 993016, 993017, 993018, 993019, 993020, 993021, 993022, 993023, 993024, 993025, 993026, 993027, 993028, 993029, 993030, 993031, 993032, 993033, 993034, 993035, 993036, 993037, 993038);
 INSERT INTO `dbc_skilllineability` (`ID`, `SkillLine`, `Spell`, `RaceMask`, `ClassMask`) VALUES
     (1100000, 999, 993001, 0, 0),
     (1100001, 999, 993002, 0, 0),
@@ -39,7 +39,7 @@ INSERT INTO `dbc_skilllineability` (`ID`, `SkillLine`, `Spell`, `RaceMask`, `Cla
     (1100024, 999, 993029, 0, 0),
     (1100025, 999, 993030, 0, 0);
 
-DELETE FROM `dbc_spells` WHERE `ID` IN (993001, 993002, 993003, 993004, 993005, 993006, 993007, 993008, 993009, 993010, 993011, 993012, 993013, 993014, 993015, 993016, 993017, 993018, 993019, 993020, 993021, 993022, 993023, 993024, 993025, 993026, 993027, 993028, 993029, 993030, 993031, 993032, 993033, 993034, 993035, 993036);
+DELETE FROM `dbc_spells` WHERE `ID` IN (993001, 993002, 993003, 993004, 993005, 993006, 993007, 993008, 993009, 993010, 993011, 993012, 993013, 993014, 993015, 993016, 993017, 993018, 993019, 993020, 993021, 993022, 993023, 993024, 993025, 993026, 993027, 993028, 993029, 993030, 993031, 993032, 993033, 993034, 993035, 993036, 993037, 993038);
 INSERT INTO `dbc_spells`
     (`ID`, `Category`, `Attributes`, `MaxLevel`, `SpellLevel`, `DurationIndex`,
      `Effect_1`, `Effect_2`, `Effect_3`, `SpellIconID`, `Rarity`,
@@ -53,7 +53,7 @@ INSERT INTO `dbc_spells`
     (993007, 0, 0, 0, 12, 26, 6, 0, 0, 20, 2, 'Enduring Roots', 'Roots the target in place for $d.'),
     (993008, 0, 0, 0, 18, 26, 6, 6, 6, 96, 2, 'Mesmerize', 'Mesmerizes the target, preventing all action but making it invulnerable for $d.'),
     (993009, 0, 0, 0, 10, 9, 6, 0, 0, 454, 1, 'Harmony', 'Calms the target, preventing it from attacking for $d.'),
-    (993010, 0, 0, 0, 20, 41, 28, 2, 0, 61, 3, 'Cavorting Bones', 'Animates a skeletal servant to fight for you for $d.'),
+    (993010, 0, 0, 0, 20, 0, 56, 0, 0, 61, 3, 'Cavorting Bones', 'Animates a skeletal servant to permanently fight at your side.'),
     (993011, 0, 0, 0, 30, 42, 6, 6, 0, 208, 3, 'Lich', 'Your flesh withers, draining your health to fuel your mana regeneration. Lasts $d.'),
     (993014, 0, 0, 0, 25, 30, 6, 0, 0, 515, 2, 'Alacrity', 'Quickens your hands, increasing attack speed by 40% for $d.'),
     (993015, 0, 0, 0, 20, 42, 6, 0, 0, 685, 2, 'Aegolism', 'Shields the caster in ancient wards, increasing health by 1000 for $d.'),

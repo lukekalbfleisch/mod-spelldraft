@@ -38,3 +38,15 @@ INSERT INTO `talent_dbc` (`ID`, `TabID`, `TierID`, `ColumnIndex`, `SpellRank_1`)
     (90030, 0, 8, 0, 994030),
     (90031, 0, 8, 0, 994031),
     (90032, 0, 8, 0, 994032);
+
+-- Native pet-buff pipeline (Unit::AddPetAura / CastPetAura): when the
+-- owner has the dummy-aura talent passive, `aura` is cast directly on
+-- their pet (filtered to `pet` creature entry, 0 = any), reactively -
+-- applies immediately even if the pet is already summoned, and removed
+-- again if the talent is respecced away.
+DELETE FROM `spell_pet_auras` WHERE `spell` IN (994017, 994018, 994019, 994020);
+INSERT INTO `spell_pet_auras` (`spell`, `effectId`, `pet`, `aura`) VALUES
+    (994017, 0, 990100, 994117),
+    (994018, 0, 990100, 994118),
+    (994019, 0, 990100, 994119),
+    (994020, 0, 990100, 994120);
