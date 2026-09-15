@@ -232,7 +232,8 @@ public:
 
         uint32 castMode = sConfigMgr->GetOption<int32>("SpellDraft.AllowSpellsInDruidForms", 0);
 
-        Unit* caster = spell->GetCaster();
+        WorldObject* casterObj = spell->GetCaster();
+        Unit* caster = casterObj ? casterObj->ToUnit() : nullptr;
         if (!caster)
             return;
 
