@@ -386,7 +386,7 @@
       "visual": 254,
       "school": 8,
       "mechanic": 0,
-      "range_idx": 1,
+      "range_idx": 4,
       "cast_idx": 1,
       "duration_idx": 30,
       "effects": [
@@ -394,7 +394,7 @@
           "type": 6,
           "aura": 138,
           "value": 40,
-          "target_a": 1
+          "target_a": 25
         }
       ],
       "family_bit": 11
@@ -409,7 +409,7 @@
       "visual": 0,
       "school": 2,
       "mechanic": 0,
-      "range_idx": 1,
+      "range_idx": 4,
       "cast_idx": 1,
       "duration_idx": 42,
       "effects": [
@@ -417,7 +417,7 @@
           "type": 6,
           "aura": 34,
           "value": 1000,
-          "target_a": 1
+          "target_a": 25
         }
       ],
       "family_bit": 12
@@ -432,7 +432,7 @@
       "visual": 9187,
       "school": 2,
       "mechanic": 0,
-      "range_idx": 1,
+      "range_idx": 4,
       "cast_idx": 1,
       "duration_idx": 41,
       "effects": [
@@ -441,20 +441,20 @@
           "aura": 29,
           "value": 200,
           "misc_a": 0,
-          "target_a": 1
+          "target_a": 25
         },
         {
           "type": 6,
           "aura": 29,
           "value": 200,
           "misc_a": 1,
-          "target_a": 1
+          "target_a": 25
         },
         {
           "type": 6,
           "aura": 99,
           "value": 400,
-          "target_a": 1
+          "target_a": 25
         }
       ],
       "family_bit": 13
