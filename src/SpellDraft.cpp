@@ -355,6 +355,22 @@ public:
             }
         }
     }
+
+    // Native "aura scaling" (Spell.cpp's m_auraScaleMask machinery) drops a
+    // buff's target entirely - failing the whole cast with "Target is too
+    // low level" - whenever target->GetLevel() + 10 is below the spell's raw
+    // SpellLevel DBC field. That's meant so a max-level Blessing still helps
+    // a twink in a party. On a classless draft server a spell's original
+    // SpellLevel reflects its native class's level curve, not this
+    // character's, so a level-10 character self-casting a "level 60" native
+    // buff (fine - self-casts skip this check) then failing to also land it
+    // on their level-10 pet is just noise. Always report the target as
+    // having passed the scaling check so the buff lands regardless of level.
+    void OnScaleAuraUnitAdd(Spell* /*spell*/, Unit* /*target*/, uint32 /*effectMask*/, bool /*checkIfValid*/, bool /*implicit*/, uint8 auraScaleMask, TargetInfo& targetInfo) override
+    {
+        if (auraScaleMask)
+            targetInfo.scaleAura = true;
+    }
 };
 
 void AddSpellDraftScripts()
