@@ -38,6 +38,151 @@ SPELL_ICON_FIELD = 133
 SPELL_NAME_FIELD = 136
 SPELL_DESC_FIELD = 170
 
+# --- generic custom active spells (tools/eq_spell_pack.json) -----------------
+# Neutral base row: native Crippling Poison. Chosen because every field that
+# would otherwise leak into a clone is already inert on it - no Attributes, no
+# Stances, SpellFamilyName 0, no cooldown/mana, EquippedItemClass -1. Every
+# field that matters is then set explicitly below, so nothing is inherited by
+# accident. Field indices are from SpellEntry in
+# src/server/shared/DataStores/DBCStructure.h.
+EQ_BASE_TEMPLATE = 25809
+
+SF_CATEGORY, SF_DISPEL, SF_MECHANIC = 1, 2, 3
+SF_ATTR0, SF_STANCES, SF_TARGETS = 4, 12, 16
+SF_CASTTIME, SF_RECOVERY, SF_CATRECOVERY = 28, 29, 30
+SF_PROCFLAGS, SF_PROCCHANCE, SF_PROCCHARGES = 34, 35, 36
+SF_MAXLEVEL, SF_BASELEVEL, SF_SPELLLEVEL = 37, 38, 39
+SF_DURATION, SF_POWERTYPE, SF_MANACOST = 40, 41, 42
+SF_RANGE, SF_STACK, SF_EQUIPCLASS = 46, 49, 68
+SF_EFFECT, SF_DIESIDES, SF_REALPPL, SF_BASEPOINTS = 71, 74, 77, 80
+SF_EFFMECHANIC, SF_TARGETA, SF_TARGETB, SF_RADIUS = 83, 86, 89, 92
+SF_AURA, SF_AMPLITUDE, SF_VALUEMULT, SF_CHAINTARGET = 95, 98, 101, 104
+SF_ITEMTYPE, SF_MISCA, SF_MISCB, SF_TRIGGER, SF_COMBOPTS = 107, 110, 113, 116, 119
+SF_CLASSMASK = 122
+SF_VISUAL, SF_ICON = 131, 133
+SF_NAME, SF_RANK, SF_DESC, SF_TOOLTIP = 136, 153, 170, 187
+SF_MANAPCT, SF_FAMILY, SF_FAMILYFLAGS = 204, 208, 209
+SF_MAXTARGETS, SF_DMGCLASS, SF_PREVENTION, SF_SCHOOL = 212, 213, 214, 225
+
+
+def build_eq_spell_row(spells, base, spec):
+    """Clone the neutral base row and apply this spell's explicit overrides."""
+    row = list(base)
+    row[SPELL_ID_FIELD] = spec['id']
+    row[SF_CATEGORY] = row[SF_DISPEL] = 0
+    row[SF_MECHANIC] = spec.get('mechanic', 0)
+    for i in range(SF_ATTR0, SF_ATTR0 + 8):
+        row[i] = 0
+    for i in range(SF_STANCES, SF_STANCES + 4):
+        row[i] = 0
+    row[SF_TARGETS] = 0
+    row[SF_CASTTIME] = spec.get('cast_idx', 1)
+    row[SF_RECOVERY] = spec.get('cooldown', 0)
+    row[SF_CATRECOVERY] = 0
+    row[SF_PROCFLAGS] = spec.get('proc_flags', 0)
+    row[SF_PROCCHANCE] = spec.get('proc_chance', 101)
+    row[SF_PROCCHARGES] = 0
+    row[SF_MAXLEVEL] = 0
+    row[SF_BASELEVEL] = row[SF_SPELLLEVEL] = spec.get('level', 1)
+    row[SF_DURATION] = spec.get('duration_idx', 0)
+    row[SF_POWERTYPE] = 0
+    row[SF_MANACOST] = 0          # free by design; this pack is deliberately overtuned
+    row[SF_RANGE] = spec.get('range_idx', 4)
+    row[SF_STACK] = 0
+    row[SF_EQUIPCLASS] = -1
+
+    for e in range(3):
+        for field in (SF_EFFECT, SF_DIESIDES, SF_REALPPL, SF_BASEPOINTS, SF_EFFMECHANIC,
+                      SF_TARGETA, SF_TARGETB, SF_RADIUS, SF_AURA, SF_AMPLITUDE,
+                      SF_VALUEMULT, SF_CHAINTARGET, SF_ITEMTYPE, SF_MISCA, SF_MISCB,
+                      SF_TRIGGER, SF_COMBOPTS):
+            row[field + e] = 0
+    for i in range(SF_CLASSMASK, SF_CLASSMASK + 9):
+        row[i] = 0
+
+    for i, ef in enumerate(spec['effects'][:3]):
+        row[SF_EFFECT + i] = ef['type']
+        row[SF_DIESIDES + i] = ef.get('die_sides', 1)
+        # DBC stores basepoints as (value - 1); the engine adds 1 + die roll.
+        row[SF_BASEPOINTS + i] = ef.get('value', 0) - 1
+        row[SF_EFFMECHANIC + i] = ef.get('mechanic', 0)
+        row[SF_TARGETA + i] = ef.get('target_a', 0)
+        row[SF_TARGETB + i] = ef.get('target_b', 0)
+        row[SF_RADIUS + i] = ef.get('radius_idx', 0)
+        row[SF_AURA + i] = ef.get('aura', 0)
+        row[SF_AMPLITUDE + i] = ef.get('amplitude', 0)
+        row[SF_MISCA + i] = ef.get('misc_a', 0)
+        row[SF_MISCB + i] = ef.get('misc_b', 0)
+        row[SF_TRIGGER + i] = ef.get('trigger', 0)
+
+    row[SF_VISUAL] = spec.get('visual', 0)
+    row[SF_VISUAL + 1] = 0
+    row[SF_ICON] = spec['icon']
+    row[SF_NAME] = spells.add_string(spec['name'])
+    row[SF_RANK] = spells.add_string(spec['rank_text']) if spec.get('rank_text') else 0
+    row[SF_DESC] = spells.add_string(spec['tooltip'])
+    row[SF_TOOLTIP] = spells.add_string(spec['tooltip'])
+    row[SF_MANAPCT] = 0
+    row[SF_FAMILY] = 0            # generic family: never interacts with class talents
+    for i in range(SF_FAMILYFLAGS, SF_FAMILYFLAGS + 3):
+        row[i] = 0
+    row[SF_MAXTARGETS] = spec.get('max_targets', 0)
+    row[SF_DMGCLASS] = 1
+    row[SF_PREVENTION] = 0
+    row[SF_SCHOOL] = spec.get('school', 1)
+    return row
+
+
+def emit_eq_spell_sql(pack, dest):
+    """Draft-pool rows. The engine itself reads the patched Spell.dbc (deployed
+    by install.sh), so NO spell_dbc rows are written here on purpose: DBCStore
+    SetEntry() replaces a whole record, so a partial spell_dbc row would clobber
+    the complete DBC one. These tables are the module's Lua-only mirror, queried
+    by LoadValidSpellChoices() in lua/SpellDraft/spell_choice.lua."""
+    sl = pack['skill_line']
+    draftable = [s for s in pack['spells'] if s.get('draftable', True)]
+    all_ids = [s['id'] for s in pack['spells']]
+
+    lines = [
+        '-- EverQuest-inspired custom spell pack (draft-pool registration).',
+        '-- GENERATED by tools/build_client_patch.py from tools/eq_spell_pack.json.',
+        '-- Do not edit by hand.',
+        '--',
+        '-- The spells themselves live in the patched Spell.dbc shipped by',
+        '-- wow-client/Data/patch-P.mpq (client) and dbc/Spell.dbc (server, deployed',
+        '-- by install.sh). These tables only make them visible to the draft picker.',
+        '',
+        f'DELETE FROM `dbc_skillline` WHERE `ID` = {sl["id"]};',
+        'INSERT INTO `dbc_skillline` (`ID`, `CategoryID`, `DisplayName_Lang_enUS`) VALUES',
+        f"    ({sl['id']}, {sl['category']}, '{sql_escape(sl['name'])}');",
+        '',
+        f"DELETE FROM `dbc_skilllineability` WHERE `Spell` IN ({', '.join(str(i) for i in all_ids)});",
+        'INSERT INTO `dbc_skilllineability` (`ID`, `SkillLine`, `Spell`, `RaceMask`, `ClassMask`) VALUES',
+    ]
+    rows = [f"    ({1100000 + i}, {sl['id']}, {s['id']}, 0, 0)" for i, s in enumerate(draftable)]
+    lines.append(',\n'.join(rows) + ';')
+
+    lines += [
+        '',
+        f"DELETE FROM `dbc_spells` WHERE `ID` IN ({', '.join(str(i) for i in all_ids)});",
+        'INSERT INTO `dbc_spells`',
+        '    (`ID`, `Category`, `Attributes`, `MaxLevel`, `SpellLevel`, `DurationIndex`,',
+        '     `Effect_1`, `Effect_2`, `Effect_3`, `SpellIconID`, `Rarity`,',
+        '     `Name_Lang_enUS`, `Description_Lang_enUS`) VALUES',
+    ]
+    rows = []
+    for s in draftable:
+        eff = [0, 0, 0]
+        for i, e in enumerate(s['effects'][:3]):
+            eff[i] = e['type']
+        rows.append(f"    ({s['id']}, 0, 0, 0, {s.get('level', 1)}, {s.get('duration_idx', 0)},"
+                    f" {eff[0]}, {eff[1]}, {eff[2]}, {s['icon']}, {s['rarity']},"
+                    f" '{sql_escape(s['name'])}', '{sql_escape(s['tooltip'])}')")
+    lines.append(',\n'.join(rows) + ';')
+    lines.append('')
+
+    Path(dest).write_text('\n'.join(lines))
+
 # ============================================================================
 # MPQ v1 writer (plain multi-sector, uncompressed)
 # ============================================================================
@@ -377,6 +522,15 @@ def main():
         flags = 1 if g['type'] == 'minor' else 0
         props.add_record([g['glyph_id'], g['effect_spell'] or g['marker_spell'], flags, g['socket_icon']])
 
+    # EverQuest-inspired custom active spells (separate manifest, optional).
+    eq_pack_path = MODULE / 'tools/eq_spell_pack.json'
+    eq_pack = json.loads(eq_pack_path.read_text()) if eq_pack_path.exists() else None
+    if eq_pack:
+        eq_base = spells.get_record(EQ_BASE_TEMPLATE)
+        for spec in eq_pack['spells']:
+            spells.add_record(build_eq_spell_row(spells, eq_base, spec))
+        print(f"added {len(eq_pack['spells'])} EQ pack spells to Spell.dbc")
+
     manifest = json.loads((MODULE / 'tools/client_patch_manifest.json').read_text())
 
     def append_manifest_rows(dbc, entries):
@@ -403,6 +557,11 @@ def main():
         src_dir = Path(md['src'])
         if not src_dir.is_absolute():
             src_dir = MODULE / src_dir
+        if not src_dir.is_dir():
+            # Loud, because a silently-missing model dir ships an archive that
+            # drops custom creature models that were in the previous patch.
+            print(f'WARNING: model_dir missing, skipping: {src_dir}')
+            continue
         for p in sorted(src_dir.iterdir()):
             if p.is_file():
                 archive[md['dest'] + '\\' + p.name] = p.read_bytes()
@@ -446,6 +605,11 @@ def main():
     sql_dest = MODULE / 'data/sql/db-world/25_custom_glyphs_client.sql'
     emit_sql(glyphs, manifest, sql_dest)
     print(f'wrote {sql_dest}')
+
+    if eq_pack:
+        eq_sql = MODULE / 'data/sql/db-world/28_eq_spell_pack.sql'
+        emit_eq_spell_sql(eq_pack, eq_sql)
+        print(f'wrote {eq_sql}')
 
 
 if __name__ == '__main__':

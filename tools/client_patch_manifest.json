@@ -257,7 +257,7 @@
   ],
   "model_dirs": [
     {
-      "src": "/run/media/system/Storage/Games/AscensionWow/Ascension Launcher/resources/ascension-live/Backup/CustomMPQs/patch-CW/Creature/werebear",
+      "src": "client_assets/werebear",
       "dest": "Creature\\werebear"
     },
     {
