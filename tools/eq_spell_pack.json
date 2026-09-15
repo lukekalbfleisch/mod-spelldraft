@@ -1039,6 +1039,34 @@
           "target_a": 6
         }
       ]
+    },
+    {
+      "id": 993039,
+      "name": "Manastone (Lesser)",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Converts a modest portion of your life force into mana.",
+      "icon": 208,
+      "visual": 1225,
+      "school": 32,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 30,
+          "value": 1500,
+          "misc_a": 0,
+          "target_a": 1
+        },
+        {
+          "type": 2,
+          "value": 750,
+          "target_a": 1
+        }
+      ]
     }
   ]
 }
