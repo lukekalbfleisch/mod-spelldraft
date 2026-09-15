@@ -59,6 +59,7 @@ def bitmask32(bit):
 SF_CATEGORY, SF_DISPEL, SF_MECHANIC = 1, 2, 3
 SF_ATTR0, SF_STANCES, SF_TARGETS = 4, 12, 16
 SF_CASTTIME, SF_RECOVERY, SF_CATRECOVERY = 28, 29, 30
+SF_INTERRUPT, SF_AURAINTERRUPT = 31, 32
 SF_PROCFLAGS, SF_PROCCHANCE, SF_PROCCHARGES = 34, 35, 36
 SF_MAXLEVEL, SF_BASELEVEL, SF_SPELLLEVEL = 37, 38, 39
 SF_DURATION, SF_POWERTYPE, SF_MANACOST = 40, 41, 42
@@ -82,12 +83,15 @@ def build_eq_spell_row(spells, base, spec):
     row[SF_MECHANIC] = spec.get('mechanic', 0)
     for i in range(SF_ATTR0, SF_ATTR0 + 8):
         row[i] = 0
+    row[SF_ATTR0 + 1] = spec.get('attributes_ex1', 0)  # AttributesEx1, e.g. 0x1 = DISMISS_PET_FIRST
     for i in range(SF_STANCES, SF_STANCES + 4):
         row[i] = 0
     row[SF_TARGETS] = 0
     row[SF_CASTTIME] = spec.get('cast_idx', 1)
     row[SF_RECOVERY] = spec.get('cooldown', 0)
     row[SF_CATRECOVERY] = 0
+    row[SF_INTERRUPT] = 0
+    row[SF_AURAINTERRUPT] = spec.get('aura_interrupt_flags', 0)
     row[SF_PROCFLAGS] = spec.get('proc_flags', 0)
     row[SF_PROCCHANCE] = spec.get('proc_chance', 101)
     row[SF_PROCCHARGES] = 0

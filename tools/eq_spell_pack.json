@@ -47,7 +47,7 @@
       "school": 1,
       "mechanic": 0,
       "range_idx": 4,
-      "cast_idx": 1,
+      "cast_idx": 19,
       "duration_idx": 5,
       "effects": [
         {
@@ -70,7 +70,7 @@
       "school": 64,
       "mechanic": 12,
       "range_idx": 1,
-      "cast_idx": 1,
+      "cast_idx": 19,
       "duration_idx": 31,
       "effects": [
         {
@@ -112,7 +112,8 @@
           "target_a": 6
         }
       ],
-      "family_bit": 3
+      "family_bit": 3,
+      "attributes_ex1": 1
     },
     {
       "id": 993005,
@@ -202,26 +203,19 @@
       "name": "Mesmerize",
       "level": 18,
       "rarity": 2,
-      "tooltip": "Mesmerizes the target, preventing all action but making it invulnerable for $d.",
+      "tooltip": "Mesmerizes the target, preventing all action for $d. Broken by damage.",
       "icon": 96,
       "visual": 1305,
       "school": 32,
       "mechanic": 18,
       "range_idx": 4,
-      "cast_idx": 1,
-      "duration_idx": 26,
+      "cast_idx": 19,
+      "duration_idx": 265,
       "effects": [
         {
           "type": 6,
           "aura": 12,
           "value": 0,
-          "target_a": 6
-        },
-        {
-          "type": 6,
-          "aura": 39,
-          "value": 0,
-          "misc_a": 127,
           "target_a": 6
         },
         {
@@ -232,27 +226,28 @@
           "target_a": 6
         }
       ],
-      "family_bit": 7
+      "family_bit": 7,
+      "aura_interrupt_flags": 2
     },
     {
       "id": 993009,
       "name": "Harmony",
       "level": 10,
       "rarity": 1,
-      "tooltip": "Calms the target, preventing it from attacking for $d.",
+      "tooltip": "Calms your presence, reducing the range at which enemies notice you for $d.",
       "icon": 454,
-      "visual": 6439,
+      "visual": 0,
       "school": 8,
       "mechanic": 0,
-      "range_idx": 5,
+      "range_idx": 1,
       "cast_idx": 1,
-      "duration_idx": 9,
+      "duration_idx": 5,
       "effects": [
         {
           "type": 6,
-          "aura": 25,
-          "value": 0,
-          "target_a": 6
+          "aura": 91,
+          "value": -20,
+          "target_a": 1
         }
       ],
       "family_bit": 8
@@ -332,7 +327,7 @@
         {
           "type": 6,
           "aura": 21,
-          "value": 25,
+          "value": 30,
           "amplitude": 3000,
           "misc_a": 0,
           "target_a": 1
@@ -366,7 +361,7 @@
         {
           "type": 6,
           "aura": 21,
-          "value": 40,
+          "value": 50,
           "amplitude": 3000,
           "misc_a": 0,
           "target_a": 1
@@ -471,7 +466,7 @@
       "rarity": 3,
       "tooltip": "The spirit of the great cat rides your weapon, striking for extra damage. Lasts $d.",
       "icon": 220,
-      "visual": 7939,
+      "visual": 0,
       "school": 8,
       "mechanic": 0,
       "range_idx": 1,
@@ -574,7 +569,7 @@
       "visual": 7278,
       "school": 4,
       "mechanic": 0,
-      "range_idx": 1,
+      "range_idx": 2,
       "cast_idx": 1,
       "duration_idx": 30,
       "effects": [
@@ -610,15 +605,15 @@
       "visual": 0,
       "school": 8,
       "mechanic": 0,
-      "range_idx": 1,
+      "range_idx": 4,
       "cast_idx": 1,
       "duration_idx": 42,
       "effects": [
         {
           "type": 6,
           "aura": 85,
-          "value": 200,
-          "target_a": 1
+          "value": 12,
+          "target_a": 25
         }
       ],
       "family_bit": 17
@@ -633,16 +628,16 @@
       "visual": 0,
       "school": 8,
       "mechanic": 0,
-      "range_idx": 1,
+      "range_idx": 4,
       "cast_idx": 1,
       "duration_idx": 30,
       "effects": [
         {
           "type": 6,
           "aura": 8,
-          "value": 300,
+          "value": 12,
           "amplitude": 3000,
-          "target_a": 1
+          "target_a": 25
         }
       ],
       "family_bit": 18
@@ -790,7 +785,7 @@
       "school": 1,
       "mechanic": 12,
       "range_idx": 2,
-      "cast_idx": 1,
+      "cast_idx": 19,
       "duration_idx": 105,
       "effects": [
         {
@@ -813,7 +808,7 @@
       "school": 32,
       "mechanic": 5,
       "range_idx": 4,
-      "cast_idx": 1,
+      "cast_idx": 19,
       "duration_idx": 23,
       "effects": [
         {
