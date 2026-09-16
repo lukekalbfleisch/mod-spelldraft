@@ -5,6 +5,7 @@
 #include "ScriptDefines/PlayerScript.h"
 #include "ScriptDefines/WorldScript.h"
 #include "Spell.h"
+#include "Pet.h"
 #include "PetDefines.h"
 #include "TemporarySummon.h"
 
@@ -241,6 +242,45 @@ class SpellDraftSpellScript : public AllSpellScript
 {
 public:
     SpellDraftSpellScript() : AllSpellScript("SpellDraftSpellScript") {}
+
+    // mod-spelldraft's "Charm" (993004). Fires once the cast is confirmed
+    // successful but before the charm aura actually applies to the target,
+    // so nothing here can ever dismiss the unit about to be charmed.
+    //
+    // This server generally lets pets/guardians coexist (mod-multiclass-
+    // summons), but the player asked for Charm specifically to force a
+    // choice: landing a charm dismisses every other pet/guardian summon
+    // first (Cavorting Bones is a real Pet; Imp/Voidwalker/etc. are plain
+    // Guardians owned by mod-multiclass-summons, which Player::GetPet()
+    // never sees - only Unit::m_Controlled has all of them). Snapshot
+    // first since RemovePet/UnSummon mutate m_Controlled as they run.
+    static constexpr uint32 SPELL_EQ_CHARM = 993004;
+
+    void OnSpellCast(Spell* /*spell*/, Unit* caster, SpellInfo const* spellInfo, bool /*skipCheck*/) override
+    {
+        if (!sConfigMgr->GetOption<bool>("SpellDraft.Enable", true))
+            return;
+
+        if (!spellInfo || spellInfo->Id != SPELL_EQ_CHARM)
+            return;
+
+        Player* player = caster ? caster->ToPlayer() : nullptr;
+        if (!player)
+            return;
+
+        std::vector<Unit*> controlled(player->m_Controlled.begin(), player->m_Controlled.end());
+        for (Unit* unit : controlled)
+        {
+            if (!unit || !unit->IsCreature())
+                continue;
+
+            if (Pet* pet = unit->ToPet())
+                player->RemovePet(pet, PET_SAVE_AS_CURRENT);
+            else if (unit->IsGuardian())
+                if (TempSummon* summon = unit->ToTempSummon())
+                    summon->UnSummon();
+        }
+    }
 
     void OnSpellCheckCast(Spell* spell, bool strict, SpellCastResult& res) override
     {
