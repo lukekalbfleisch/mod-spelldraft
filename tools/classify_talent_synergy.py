@@ -355,12 +355,17 @@ SPELLMOD_OP_NAMES = {
 SCHOOL_MASKS = {1: "Physical", 2: "Holy", 4: "Fire", 8: "Nature",
                 16: "Frost", 32: "Shadow", 64: "Arcane"}
 
-# Effects/auras that make a spell a heal, used to tell a damage-side talent from
-# a healing-side one: DAMAGE/DOT spellmods served Blizzard for BOTH (the same
-# lever carries +healing%), and the school-mask replacement differs
-# (MOD_DAMAGE_PERCENT_DONE vs MOD_HEALING_DONE_PERCENT).
-HEAL_EFFECTS = frozenset({10, 23, 56})   # HEAL, HEAL_MAX_HEALTH, HEAL_MECHANICAL
-HEAL_AURAS = frozenset({8})              # PERIODIC_HEAL
+# Effects/auras that make a spell a heal or a damaging spell. Used to tell the
+# damage-side talents from the healing-side ones: DAMAGE/DOT spellmods served
+# Blizzard for BOTH (the same lever carries +healing%), and the school-mask
+# replacement differs (MOD_DAMAGE_PERCENT_DONE vs MOD_HEALING_DONE_PERCENT).
+# Values are this core's SpellEffects/AuraType enums (SharedDefines.h /
+# SpellAuraDefines.h) - note HEAL_MAX_HEALTH is 67 here and HEAL_MECHANICAL 75,
+# not the 23/56 some other cores use.
+HEAL_EFFECTS = frozenset({9, 10, 67, 75, 136})  # LEECH, HEAL, HEAL_MAX_HEALTH, HEAL_MECHANICAL, HEAL_PCT
+HEAL_AURAS = frozenset({8})                     # PERIODIC_HEAL
+DAMAGE_EFFECTS = frozenset({2, 17, 31, 58, 121})  # SCHOOL_DAMAGE + the four weapon-damage effects
+DAMAGE_AURAS = frozenset({3, 89})                 # PERIODIC_DAMAGE, PERIODIC_DAMAGE_PERCENT
 
 
 # ============================================================================
@@ -465,14 +470,18 @@ def analyze_breakdown(results, index):
         ops = sorted({e["misc"] for e in scoped})
         tiers = {SPELLMOD_LEVERS.get(op, ("3", None))[0] for op in ops}
         healed = False
+        damaged = False
         touched = 0
         for effect in scoped:
             affected = expand_mask(index, effect["family"], effect["mask"])
             touched = max(touched, len(affected))
-            healed = healed or any(
-                entry[4 + i] in HEAL_EFFECTS or entry[7 + i] in HEAL_AURAS
-                for entry in affected for i in everything
-            )
+            for entry in affected:
+                for i in everything:
+                    healed = healed or entry[4 + i] in HEAL_EFFECTS or entry[7 + i] in HEAL_AURAS
+                    damaged = damaged or entry[4 + i] in DAMAGE_EFFECTS or entry[7 + i] in DAMAGE_AURAS
+        # `healed` alone is not "this is a healing talent": Death Strike both
+        # damages and heals, so its talent is a hybrid needing both auras.
+        side = "hybrid" if (healed and damaged) else ("heal-only" if healed else "damage")
         rows.append({
             "className": result["className"],
             "name": result["name"],
@@ -481,6 +490,7 @@ def analyze_breakdown(results, index):
             "tier": max(tiers),
             "mixed": len(tiers) > 1,
             "healed": healed,
+            "side": side,
             "touched": touched,
             "improved": result["name"].startswith("Improved "),
         })
@@ -500,7 +510,6 @@ def breakdown_head(rows):
     tier1 = [r for r in rows if r["tier"] == "1"]
     mixed = sum(1 for r in rows if r["mixed"])
     improved = sum(1 for r in rows if r["improved"])
-    healed = sum(1 for r in rows if r["healed"])
 
     add("# needs-redesign breakdown (Phase 1d follow-up)")
     add("")
@@ -537,9 +546,12 @@ def breakdown_head(rows):
     add("Two caveats before anyone starts:")
     add("")
     add("- `SPELLMOD_DAMAGE`/`DOT` also carried Blizzard's **+healing%** talents (the same")
-    add("  lever covers both), so those must become `SPELL_AURA_MOD_HEALING_DONE_PERCENT`")
-    add("  rather than a damage aura. The healing-side column below comes from the effect")
-    add("  types of the spells each mask actually governs, so it is authoritative.")
+    add("  lever covers both), so a talent that boosts healing must become")
+    add("  `SPELL_AURA_MOD_HEALING_DONE_PERCENT` rather than a damage aura. The side column")
+    add("  below comes from the effect types of the spells each mask actually governs. Note it")
+    add("  is a **review marker, not a verdict**: a talent whose mask touches Death Strike is")
+    add("  flagged `hybrid` because that spell both damages and heals, and such a talent needs")
+    add("  both auras.")
     add("- `SPELLMOD_DAMAGE` scales a spell's **base points**, while")
     add("  `SPELL_AURA_MOD_DAMAGE_PERCENT_DONE` is a final **damage-done multiplier**. The")
     add("  magnitudes do not transfer 1:1, so each conversion needs re-tuning, not just")
@@ -547,19 +559,21 @@ def breakdown_head(rows):
     add("")
     add("### Effort by class")
     add("")
-    add("| class | tier 1 | broad (not \"Improved ...\") | healing-side |")
-    add("|---|---:|---:|---:|")
+    add("| class | tier 1 | broad (not \"Improved ...\") | damage-side | heal-only | hybrid |")
+    add("|---|---:|---:|---:|---:|---:|")
     for class_name in sorted({r["className"] for r in tier1}):
         group = [r for r in tier1 if r["className"] == class_name]
         broad = sum(1 for r in group if not r["improved"])
-        add(f"| {class_name} | {len(group)} | {broad} | {sum(1 for r in group if r['healed'])} |")
+        sides = collections.Counter(r["side"] for r in group)
+        add(f"| {class_name} | {len(group)} | {broad} | {sides['damage']} | "
+            f"{sides['heal-only']} | {sides['hybrid']} |")
     add("")
-    return lines, add, tier1, improved, healed
+    return lines, add, tier1, improved
 
 
 def render_breakdown(rows):
     """The full breakdown document."""
-    lines, add, tier1, improved, healed = breakdown_head(rows)
+    lines, add, tier1, improved = breakdown_head(rows)
     add("## Tier 2 - no lever exists")
     add("")
     add("The engine has no per-school aura for these, so each is a policy call:")
@@ -618,7 +632,8 @@ def render_breakdown(rows):
     add("stop lying. Both go through `tools/build_client_patch.py`.")
     add("")
 
-    recommended = [r for r in rows if r["tier"] == "1" and not r["improved"] and not r["healed"]]
+    recommended = [r for r in rows if r["tier"] == "1" and not r["improved"]
+                   and r["side"] == "damage"]
     add("## Suggested first cut")
     add("")
     add(f"Tier 1, broad (not `Improved <spell>`), damage-side: **{len(recommended)} chains**, spread")
@@ -634,12 +649,12 @@ def render_breakdown(rows):
     add("Deliberately excluded:")
     add("")
     t1_improved = sum(1 for r in tier1 if r["improved"])
-    t1_healed = sum(1 for r in tier1 if r["healed"])
+    t1_other = sum(1 for r in tier1 if r["side"] != "damage")
     add(f"- the {t1_improved} `Improved <spell>` chains inside tier 1 ({improved} across the whole")
     add("  needs-redesign set) - spell-specific by name *and* intent (\"Improved Fireball\" is")
     add("  about Fireball), so converting them means renaming them.")
-    add(f"- the {t1_healed} healing-side chains in tier 1 ({healed} across the whole set), which need")
-    add("  the healing aura and their own balance pass.")
+    add(f"- the {t1_other} tier-1 chains whose masks touch a healing spell, which need the healing")
+    add("  aura (and both auras when they are hybrids).")
     add("")
     add("## Full tier-1 list")
     add("")
@@ -650,8 +665,7 @@ def render_breakdown(rows):
                          if SPELLMOD_LEVERS.get(op, ("3", None))[0] == "1"})
         names = ", ".join(f"`{SPELLMOD_OP_NAMES.get(op, op)}`" for op in row["ops"])
         add(f"| {row['className']} | {row['name']} | {row['talentId']} | {names} | "
-            f"{', '.join('`' + l + '`' for l in levers)} | {row['touched']} | "
-            f"{'heal' if row['healed'] else 'damage'} |")
+            f"{', '.join('`' + l + '`' for l in levers)} | {row['touched']} | {row['side']} |")
     add("")
     return "\n".join(lines) + "\n"
 
