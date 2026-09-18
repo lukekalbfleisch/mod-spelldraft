@@ -434,12 +434,16 @@ def classify_chains(chains, dbc, spells, aura_names, school_mask_auras, tab_clas
 
 def build_family_index(dbc):
     """
-    {SpellFamilyName: [(familyFlags0, flags1, flags2, school, e0..e2, a0..a2)]}.
+    {SpellFamilyName: [(familyFlags0, flags1, flags2, school, e0..e2, a0..a2,
+                        nameOffset, spellId)]}.
 
     Needed to expand an EffectSpellClassMask into the spells it governs, which is
     exactly what `SpellInfo::IsAffected` does: same SpellFamilyName, and any
     overlapping bit between the mod's mask and the spell's SpellFamilyFlags.
-    Stored compactly - the DBC has ~50k rows.
+    Stored compactly - the DBC has ~50k rows. The last two fields are appended for
+    callers that need to identify a spell (school derivation matches spell names
+    against a talent's tooltip); everything before them keeps its index, so
+    existing consumers are unaffected.
     """
     index = collections.defaultdict(list)
     effects = [SF_EFFECT, SF_EFFECT + 1, SF_EFFECT + 2]
@@ -449,6 +453,7 @@ def build_family_index(dbc):
         index[row[SF_FAMILY]].append(
             (row[SF_FAMILYFLAGS], row[SF_FAMILYFLAGS + 1], row[SF_FAMILYFLAGS + 2],
              row[SF_SCHOOL]) + tuple(row[f] for f in effects) + tuple(row[f] for f in auras)
+            + (row[SF_NAME], row[0])
         )
     return index
 
