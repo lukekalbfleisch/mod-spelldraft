@@ -517,6 +517,7 @@ CONFIG = {
     -- LoadTalentChains logs a warning if a tab ever appears here without a mapping.
     ---------------------------------------------------------------------------
 
+    -- BEGIN GENERATED: TALENT_TAB_CLASS (tools/generate_talent_data.py)
     TALENT_TAB_CLASS = {
         -- Mage
         [41]  = 8,   -- Fire
@@ -559,6 +560,7 @@ CONFIG = {
         [399] = 6,   -- Frost
         [400] = 6,   -- Unholy
     },
+    -- END GENERATED: TALENT_TAB_CLASS
 
     -- Spells that require the player to already know a prerequisite spell.
     -- Key = spell ID, Value = single prereq ID or table of IDs (any one satisfies).

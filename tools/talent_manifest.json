@@ -1,0 +1,324 @@
+{
+  "_comment": "Source of truth for tools/generate_talent_data.py: edit here, then re-run it.",
+  "tabs": [
+    {
+      "tabId": 41,
+      "class": "MAGE",
+      "spec": "Fire"
+    },
+    {
+      "tabId": 61,
+      "class": "MAGE",
+      "spec": "Frost"
+    },
+    {
+      "tabId": 81,
+      "class": "MAGE",
+      "spec": "Arcane"
+    },
+    {
+      "tabId": 161,
+      "class": "WARRIOR",
+      "spec": "Arms"
+    },
+    {
+      "tabId": 163,
+      "class": "WARRIOR",
+      "spec": "Protection"
+    },
+    {
+      "tabId": 164,
+      "class": "WARRIOR",
+      "spec": "Fury"
+    },
+    {
+      "tabId": 181,
+      "class": "ROGUE",
+      "spec": "Combat"
+    },
+    {
+      "tabId": 182,
+      "class": "ROGUE",
+      "spec": "Assassination"
+    },
+    {
+      "tabId": 183,
+      "class": "ROGUE",
+      "spec": "Subtlety"
+    },
+    {
+      "tabId": 201,
+      "class": "PRIEST",
+      "spec": "Discipline"
+    },
+    {
+      "tabId": 202,
+      "class": "PRIEST",
+      "spec": "Holy"
+    },
+    {
+      "tabId": 203,
+      "class": "PRIEST",
+      "spec": "Shadow"
+    },
+    {
+      "tabId": 261,
+      "class": "SHAMAN",
+      "spec": "Elemental"
+    },
+    {
+      "tabId": 262,
+      "class": "SHAMAN",
+      "spec": "Restoration"
+    },
+    {
+      "tabId": 263,
+      "class": "SHAMAN",
+      "spec": "Enhancement"
+    },
+    {
+      "tabId": 281,
+      "class": "DRUID",
+      "spec": "Feral Combat"
+    },
+    {
+      "tabId": 282,
+      "class": "DRUID",
+      "spec": "Restoration"
+    },
+    {
+      "tabId": 283,
+      "class": "DRUID",
+      "spec": "Balance"
+    },
+    {
+      "tabId": 301,
+      "class": "WARLOCK",
+      "spec": "Destruction"
+    },
+    {
+      "tabId": 302,
+      "class": "WARLOCK",
+      "spec": "Affliction"
+    },
+    {
+      "tabId": 303,
+      "class": "WARLOCK",
+      "spec": "Demonology"
+    },
+    {
+      "tabId": 361,
+      "class": "HUNTER",
+      "spec": "Beast Mastery"
+    },
+    {
+      "tabId": 362,
+      "class": "HUNTER",
+      "spec": "Survival"
+    },
+    {
+      "tabId": 363,
+      "class": "HUNTER",
+      "spec": "Marksmanship"
+    },
+    {
+      "tabId": 381,
+      "class": "PALADIN",
+      "spec": "Retribution"
+    },
+    {
+      "tabId": 382,
+      "class": "PALADIN",
+      "spec": "Holy"
+    },
+    {
+      "tabId": 383,
+      "class": "PALADIN",
+      "spec": "Protection"
+    },
+    {
+      "tabId": 398,
+      "class": "DEATHKNIGHT",
+      "spec": "Blood"
+    },
+    {
+      "tabId": 399,
+      "class": "DEATHKNIGHT",
+      "spec": "Frost"
+    },
+    {
+      "tabId": 400,
+      "class": "DEATHKNIGHT",
+      "spec": "Unholy"
+    }
+  ],
+  "lockedTalents": {
+    "DEATHKNIGHT": [
+      61154,
+      49028,
+      55050,
+      49016,
+      49005,
+      48982,
+      55233,
+      49189,
+      49796,
+      49143,
+      49184,
+      49203,
+      49039,
+      51271,
+      51052,
+      49222,
+      49158,
+      63560,
+      49146,
+      55090,
+      49206
+    ],
+    "DRUID": [
+      33831,
+      5570,
+      24858,
+      48505,
+      50516,
+      50334,
+      49377,
+      33917,
+      37116,
+      61336,
+      17116,
+      18562,
+      65139,
+      48438
+    ],
+    "HUNTER": [
+      53270,
+      19574,
+      19577,
+      19434,
+      53209,
+      23989,
+      34490,
+      19506,
+      3674,
+      19306,
+      53301,
+      19503,
+      19386
+    ],
+    "MAGE": [
+      44425,
+      12042,
+      54646,
+      12043,
+      31589,
+      11113,
+      11129,
+      31661,
+      64353,
+      44457,
+      11366,
+      11958,
+      44572,
+      11426,
+      12472,
+      31687
+    ],
+    "PALADIN": [
+      31821,
+      53563,
+      20216,
+      31842,
+      20473,
+      31935,
+      20911,
+      64205,
+      53595,
+      20925,
+      35395,
+      53385,
+      20066,
+      20375
+    ],
+    "PRIEST": [
+      14751,
+      33206,
+      47540,
+      10060,
+      34861,
+      19236,
+      47788,
+      724,
+      47585,
+      15407,
+      64044,
+      15473,
+      15487,
+      15286,
+      34914
+    ],
+    "ROGUE": [
+      14177,
+      51662,
+      1329,
+      13750,
+      13877,
+      51690,
+      14251,
+      14278,
+      16511,
+      14183,
+      14185,
+      51713,
+      36554
+    ],
+    "SHAMAN": [
+      16166,
+      51490,
+      30706,
+      30798,
+      51533,
+      60103,
+      30823,
+      16268,
+      17364,
+      51886,
+      974,
+      16190,
+      16188,
+      61295,
+      55198
+    ],
+    "WARLOCK": [
+      18223,
+      18220,
+      48181,
+      30108,
+      47193,
+      18708,
+      59672,
+      19028,
+      30146,
+      50796,
+      17962,
+      17877,
+      30283
+    ],
+    "WARRIOR": [
+      46924,
+      12294,
+      12328,
+      23881,
+      12292,
+      60970,
+      12323,
+      46917,
+      12809,
+      20243,
+      12975,
+      46968,
+      50720
+    ]
+  }
+}

@@ -96,6 +96,7 @@ local rerollsText
 local bansText
 local draftsText
 
+-- BEGIN GENERATED: LOCKED_TALENTS (tools/generate_talent_data.py)
 local LOCKED_TALENTS = {
     -- DEATHKNIGHT (21)
     [61154] = true, [49028] = true, [55050] = true, [49016] = true, [49005] = true, [48982] = true, [55233] = true, [49189] = true,
@@ -129,6 +130,7 @@ local LOCKED_TALENTS = {
     [46924] = true, [12294] = true, [12328] = true, [23881] = true, [12292] = true, [60970] = true, [12323] = true, [46917] = true,
     [12809] = true, [20243] = true, [12975] = true, [46968] = true, [50720] = true,
 }
+-- END GENERATED: LOCKED_TALENTS
 
 -- 3.3.5-safe lock texture: SetTexture returns nil for missing files, so try
 -- known-good paths in order and keep the first one that loads.
