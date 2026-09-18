@@ -67,7 +67,7 @@ CORE_ROOT = os.path.join(REPO_ROOT, "src", "server")
 sys.path.insert(0, os.path.join(MODULE_ROOT, "tools"))
 from build_client_patch import (  # noqa: E402  (needs the sys.path line above)
     Dbc, EQ_CUSTOM_FAMILY, SF_ATTR0, SF_AURA, SF_BASEPOINTS, SF_CLASSMASK, SF_EFFECT,
-    SF_FAMILY, SF_MISCA, SF_NAME,
+    SF_FAMILY, SF_FAMILYFLAGS, SF_MISCA, SF_NAME, SF_SCHOOL,
 )
 
 # Spell is automatically cast on self by the core (SharedDefines.h:376). A talent
@@ -305,6 +305,65 @@ CROSS_CLASS_VERDICTS = frozenset({"school-mask", "character-wide", "spellmod-glo
 
 
 # ============================================================================
+# needs-redesign breakdown (Phase 1d follow-up)
+# ============================================================================
+#
+# Every chain labelled `needs-redesign` has at least one spellmod scoped by
+# (SpellFamilyName, EffectSpellClassMask), so its benefit can never reach the
+# character's other class. How hard that is to fix depends entirely on the
+# SpellModOp it uses, which is the `EffectMiscValue` of the ADD_*_MODIFIER aura:
+#
+#   tier 1  a per-school aura lever EXISTS in this core -> swap the aura for it,
+#           keeping the same school and magnitude. Mechanical.
+#   tier 2  no per-school lever exists (cooldowns, cast times, duration, range,
+#           radii, charges, ...) -> either drop SpellFamilyName (which makes the
+#           mask inert, so the talent applies to EVERY spell) or leave it
+#           class-locked. A balance decision, not a plumbing one.
+#   tier 3  the op mutates a specific effect slot of a specific spell
+#           (ALL_EFFECTS / EFFECT1-3 / *_MULTIPLIER) -> spell-specific by
+#           construction; needs hand re-authoring.
+#
+# A chain is tier N when its WORST op is N, because one stubborn op blocks the
+# whole chain.
+SPELLMOD_LEVERS = {
+    0:  ("1", "SPELL_AURA_MOD_DAMAGE_PERCENT_DONE"),
+    22: ("1", "SPELL_AURA_MOD_DAMAGE_PERCENT_DONE"),
+    7:  ("1", "SPELL_AURA_MOD_SPELL_CRIT_CHANCE_SCHOOL"),
+    15: ("1", "SPELL_AURA_MOD_CRIT_DAMAGE_BONUS"),
+    16: ("1", "SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT"),
+    14: ("1", "SPELL_AURA_MOD_POWER_COST_SCHOOL_PCT"),
+    2:  ("1", "SPELL_AURA_MOD_THREAT"),
+    10: ("2", None), 11: ("2", None), 1: ("2", None), 5: ("2", None),
+    6: ("2", None), 4: ("2", None), 21: ("2", None), 9: ("2", None),
+    17: ("2", None), 19: ("2", None), 26: ("2", None), 30: ("2", None),
+    3: ("3", None), 8: ("3", None), 12: ("3", None), 23: ("3", None),
+    13: ("3", None), 18: ("3", None), 20: ("3", None), 24: ("3", None),
+    27: ("3", None), 28: ("3", None),
+}
+
+SPELLMOD_OP_NAMES = {
+    0: "DAMAGE", 1: "DURATION", 2: "THREAT", 3: "EFFECT1", 4: "CHARGES",
+    5: "RANGE", 6: "RADIUS", 7: "CRIT_CHANCE", 8: "ALL_EFFECTS",
+    9: "NOT_LOSE_CASTING", 10: "CAST_TIME", 11: "COOLDOWN", 12: "EFFECT2",
+    13: "IGNORE_ARMOR", 14: "COST", 15: "CRIT_DAMAGE", 16: "RESIST_MISS",
+    17: "JUMP_TARGETS", 18: "CHANCE_OF_SUCCESS", 19: "ACTIVATION_TIME",
+    20: "DAMAGE_MULTIPLIER", 21: "GLOBAL_COOLDOWN", 22: "DOT",
+    23: "EFFECT3", 24: "BONUS_MULTIPLIER", 26: "PROC_PER_MINUTE",
+    27: "VALUE_MULTIPLIER", 28: "RESIST_DISPEL_CHANCE", 30: "COST_REFUND",
+}
+
+SCHOOL_MASKS = {1: "Physical", 2: "Holy", 4: "Fire", 8: "Nature",
+                16: "Frost", 32: "Shadow", 64: "Arcane"}
+
+# Effects/auras that make a spell a heal, used to tell a damage-side talent from
+# a healing-side one: DAMAGE/DOT spellmods served Blizzard for BOTH (the same
+# lever carries +healing%), and the school-mask replacement differs
+# (MOD_DAMAGE_PERCENT_DONE vs MOD_HEALING_DONE_PERCENT).
+HEAL_EFFECTS = frozenset({10, 23, 56})   # HEAL, HEAL_MAX_HEALTH, HEAL_MECHANICAL
+HEAL_AURAS = frozenset({8})              # PERIODIC_HEAL
+
+
+# ============================================================================
 # Classification
 # ============================================================================
 
@@ -366,6 +425,235 @@ def classify_chains(chains, dbc, spells, aura_names, school_mask_auras, tab_clas
             "effects": effects,
         })
     return results
+
+
+def build_family_index(dbc):
+    """
+    {SpellFamilyName: [(familyFlags0, flags1, flags2, school, e0..e2, a0..a2)]}.
+
+    Needed to expand an EffectSpellClassMask into the spells it governs, which is
+    exactly what `SpellInfo::IsAffected` does: same SpellFamilyName, and any
+    overlapping bit between the mod's mask and the spell's SpellFamilyFlags.
+    Stored compactly - the DBC has ~50k rows.
+    """
+    index = collections.defaultdict(list)
+    effects = [SF_EFFECT, SF_EFFECT + 1, SF_EFFECT + 2]
+    auras = [SF_AURA, SF_AURA + 1, SF_AURA + 2]
+    for offset in range(0, dbc.recs * dbc.recsize, dbc.recsize):
+        row = struct.unpack_from(f"<{dbc.fields}i", dbc.records, offset)
+        index[row[SF_FAMILY]].append(
+            (row[SF_FAMILYFLAGS], row[SF_FAMILYFLAGS + 1], row[SF_FAMILYFLAGS + 2],
+             row[SF_SCHOOL]) + tuple(row[f] for f in effects) + tuple(row[f] for f in auras)
+        )
+    return index
+
+
+def expand_mask(index, family, mask):
+    """The spells a class-scoped spellmod reaches."""
+    return [entry for entry in index.get(family, ())
+            if any(mask[j] and (entry[j] & mask[j]) for j in range(3))]
+
+
+def analyze_breakdown(results, index):
+    """Group the needs-redesign chains into tiers, with healing flagged."""
+    everything = {0, 1, 2}
+    rows = []
+    for result in results:
+        if result["label"] != "needs-redesign":
+            continue
+        scoped = [e for e in result["effects"] if e["verdict"] == "spellmod-class-scoped"]
+        ops = sorted({e["misc"] for e in scoped})
+        tiers = {SPELLMOD_LEVERS.get(op, ("3", None))[0] for op in ops}
+        healed = False
+        touched = 0
+        for effect in scoped:
+            affected = expand_mask(index, effect["family"], effect["mask"])
+            touched = max(touched, len(affected))
+            healed = healed or any(
+                entry[4 + i] in HEAL_EFFECTS or entry[7 + i] in HEAL_AURAS
+                for entry in affected for i in everything
+            )
+        rows.append({
+            "className": result["className"],
+            "name": result["name"],
+            "talentId": result["talentId"],
+            "ops": ops,
+            "tier": max(tiers),
+            "mixed": len(tiers) > 1,
+            "healed": healed,
+            "touched": touched,
+            "improved": result["name"].startswith("Improved "),
+        })
+    return rows
+
+
+# ============================================================================
+# needs-redesign breakdown report
+# ============================================================================
+
+def breakdown_head(rows):
+    """Markdown: the needs-redesign work split by what the fix requires."""
+    lines = []
+    add = lines.append
+    total = len(rows)
+    by_tier = collections.Counter(r["tier"] for r in rows)
+    tier1 = [r for r in rows if r["tier"] == "1"]
+    mixed = sum(1 for r in rows if r["mixed"])
+    improved = sum(1 for r in rows if r["improved"])
+    healed = sum(1 for r in rows if r["healed"])
+
+    add("# needs-redesign breakdown (Phase 1d follow-up)")
+    add("")
+    add(f"The {total} chains labelled `needs-redesign` by `tools/classify_talent_synergy.py`,")
+    add("split by what the fix actually requires. A chain's tier is the **worst** op it uses,")
+    add("because one stubborn op blocks the whole chain.")
+    add("")
+    add("| tier | what it means | chains | effort |")
+    add("|---|---|---:|---|")
+    add(f"| **1** | every scoped op has a per-school aura lever | {by_tier['1']} | swap the aura |")
+    add(f"| **2** | an op has no per-school lever | {by_tier['2']} | a balance decision |")
+    add(f"| **3** | an op targets one effect slot | {by_tier['3']} | hand re-author |")
+    add("")
+    add("Tier 1's ops are the damage/healing, crit, cost, threat and resist ones, and this")
+    add("core has a school-mask aura for each (listed below). Tier 2's are the timers and")
+    add("ranges - cooldown, cast time, duration, range, radius, charges - where no")
+    add("per-school lever exists. Tier 3's are `ALL_EFFECTS` / `EFFECT1-3` / `*_MULTIPLIER`,")
+    add("which scale a specific effect slot and are therefore spell-specific by construction.")
+    add("")
+    add(f"Mixed chains (ops from more than one tier, so more than one fix): {mixed}.")
+    add("")
+
+    add("## Tier 1 - the mechanical bucket")
+    add("")
+    add("Each op maps to an aura this core already consumes per school:")
+    add("")
+    add("| SpellModOp | per-school aura lever |")
+    add("|---|---|")
+    for op in sorted(SPELLMOD_LEVERS):
+        tier, lever = SPELLMOD_LEVERS[op]
+        if tier == "1":
+            add(f"| `SPELLMOD_{SPELLMOD_OP_NAMES.get(op, op)}` | `{lever}` |")
+    add("")
+    add("Two caveats before anyone starts:")
+    add("")
+    add("- `SPELLMOD_DAMAGE`/`DOT` also carried Blizzard's **+healing%** talents (the same")
+    add("  lever covers both), so those must become `SPELL_AURA_MOD_HEALING_DONE_PERCENT`")
+    add("  rather than a damage aura. The healing-side column below comes from the effect")
+    add("  types of the spells each mask actually governs, so it is authoritative.")
+    add("- `SPELLMOD_DAMAGE` scales a spell's **base points**, while")
+    add("  `SPELL_AURA_MOD_DAMAGE_PERCENT_DONE` is a final **damage-done multiplier**. The")
+    add("  magnitudes do not transfer 1:1, so each conversion needs re-tuning, not just")
+    add("  re-plumbing.")
+    add("")
+    add("### Effort by class")
+    add("")
+    add("| class | tier 1 | broad (not \"Improved ...\") | healing-side |")
+    add("|---|---:|---:|---:|")
+    for class_name in sorted({r["className"] for r in tier1}):
+        group = [r for r in tier1 if r["className"] == class_name]
+        broad = sum(1 for r in group if not r["improved"])
+        add(f"| {class_name} | {len(group)} | {broad} | {sum(1 for r in group if r['healed'])} |")
+    add("")
+    return lines, add, tier1, improved, healed
+
+
+def render_breakdown(rows):
+    """The full breakdown document."""
+    lines, add, tier1, improved, healed = breakdown_head(rows)
+    add("## Tier 2 - no lever exists")
+    add("")
+    add("The engine has no per-school aura for these, so each is a policy call:")
+    add("")
+    add("- **Drop `SpellFamilyName`** - the mask becomes inert, so the talent applies to")
+    add("  *every* spell the character casts. Keeps the fantasy (\"your spells are cheaper /")
+    add("  faster\") but is a uniform increase across both classes.")
+    add("- **Leave it class-locked** and document it. Nothing breaks; the pairing just gets")
+    add("  less out of that tree.")
+    add("")
+    for tier, heading in (("2", "### Tier 2 ops"), ("3", "## Tier 3 - spell-specific by construction")):
+        if tier == "3":
+            add(heading)
+            add("")
+            add("These mutate one effect slot of one spell, so there is no generic substitute:")
+            add("the talent has to be re-authored around a different effect (or left alone).")
+            add("")
+        else:
+            add(heading)
+            add("")
+        ops = collections.Counter()
+        for row in rows:
+            if row["tier"] == tier:
+                for op in row["ops"]:
+                    if SPELLMOD_LEVERS.get(op, ("3", None))[0] == tier:
+                        ops[SPELLMOD_OP_NAMES.get(op, op)] += 1
+        add("| `SpellModOp` | chains |")
+        add("|---|---:|")
+        for name, count in ops.most_common():
+            add(f"| `SPELLMOD_{name}` | {count} |")
+        add("")
+
+    add("## Why the school cannot be picked mechanically")
+    add("")
+    add("The obvious shortcut - derive the replacement's school from the spells the mask")
+    add("governs - does not work, for two measured reasons:")
+    add("")
+    touched = sorted(r["touched"] for r in rows)
+    add(f"- The masks are **coarse**: expanding them gives a median of {touched[len(touched) // 2]}")
+    add(f"  spells per chain across the whole needs-redesign set (max {touched[-1]}), whose schools")
+    add("  union to things like `Physical+Fire+Nature+Frost+Shadow`. The bits are shared with")
+    add("  cosmetic, test and NPC spells, so a damage-only talent looks pan-school.")
+    add("- The talent's own spell carries `SchoolMask = Physical` for almost every chain,")
+    add("  so it is no hint either.")
+    add("")
+    add("The school therefore has to be read off each talent's name/tooltip: one judgement")
+    add("call per converted talent. That, not the plumbing, is the real cost of tier 1.")
+    add("")
+
+    add("## Shipping")
+    add("")
+    add("The aura lives in `Spell.dbc`, but the world DB's `spell_dbc` override table carries")
+    add("`EffectAura_1..3`, `EffectMiscValue_*`, `EffectSpellClassMaskA/B/C_*`, `SpellClassSet`")
+    add("and `Attributes`. A conversion can ship **server-side as SQL** and be hot-swapped;")
+    add("only the client tooltip needs the client patch (`patch-P.mpq` + `dbc/Spell.dbc`) to")
+    add("stop lying. Both go through `tools/build_client_patch.py`.")
+    add("")
+
+    recommended = [r for r in rows if r["tier"] == "1" and not r["improved"] and not r["healed"]]
+    add("## Suggested first cut")
+    add("")
+    add(f"Tier 1, broad (not `Improved <spell>`), damage-side: **{len(recommended)} chains**, spread")
+    add("evenly across the classes. Their tooltips already promise a school-wide-style benefit, so")
+    add("converting them needs no renaming and no healing/damage judgement - only the school and a")
+    add("magnitude re-tune.")
+    add("")
+    add("| class | chains |")
+    add("|---|---:|")
+    for class_name, count in collections.Counter(r["className"] for r in recommended).most_common():
+        add(f"| {class_name} | {count} |")
+    add("")
+    add("Deliberately excluded:")
+    add("")
+    t1_improved = sum(1 for r in tier1 if r["improved"])
+    t1_healed = sum(1 for r in tier1 if r["healed"])
+    add(f"- the {t1_improved} `Improved <spell>` chains inside tier 1 ({improved} across the whole")
+    add("  needs-redesign set) - spell-specific by name *and* intent (\"Improved Fireball\" is")
+    add("  about Fireball), so converting them means renaming them.")
+    add(f"- the {t1_healed} healing-side chains in tier 1 ({healed} across the whole set), which need")
+    add("  the healing aura and their own balance pass.")
+    add("")
+    add("## Full tier-1 list")
+    add("")
+    add("| class | talent | id | ops | lever | spells touched | side |")
+    add("|---|---|---:|---|---|---:|---|")
+    for row in sorted(tier1, key=lambda r: (r["className"], r["name"])):
+        levers = sorted({SPELLMOD_LEVERS[op][1] for op in row["ops"]
+                         if SPELLMOD_LEVERS.get(op, ("3", None))[0] == "1"})
+        names = ", ".join(f"`{SPELLMOD_OP_NAMES.get(op, op)}`" for op in row["ops"])
+        add(f"| {row['className']} | {row['name']} | {row['talentId']} | {names} | "
+            f"{', '.join('`' + l + '`' for l in levers)} | {row['touched']} | "
+            f"{'heal' if row['healed'] else 'damage'} |")
+    add("")
+    return "\n".join(lines) + "\n"
 
 
 def report_summary(results, args, chain_source):
@@ -564,6 +852,9 @@ def main():
     parser.add_argument("--json", dest="json_out", help="also write the raw classification")
     parser.add_argument("--limit", type=int, default=40,
                         help="rows to list per report table (default: 40)")
+    parser.add_argument("--breakdown", action="store_true",
+                        help="report the needs-redesign chains split by fix tier instead "
+                             "of the synergy classification")
     parser.add_argument("--pairs", type=int, default=15,
                         help="class pairings to show (default: 15, best first)")
     parser.add_argument("--examples", nargs="*", default=[
@@ -593,7 +884,10 @@ def main():
 
     results = classify_chains(chains, dbc, spells, aura_names, school_mask_auras, tab_classes)
 
-    report = build_report(results, args, school_mask_auras, chain_source, family_names)
+    if args.breakdown:
+        report = render_breakdown(analyze_breakdown(results, build_family_index(dbc)))
+    else:
+        report = build_report(results, args, school_mask_auras, chain_source, family_names)
     if args.out:
         with open(args.out, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(report)
