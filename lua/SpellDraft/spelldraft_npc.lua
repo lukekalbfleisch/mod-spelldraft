@@ -24,6 +24,71 @@ local WHITE = "|cffffffff"
 local startingGear = CONFIG.startingGear
 
 
+-- ══════════════════════ Multiclass (mod-multiclass) ══════════════════════
+-- The C++ mod-multiclass module owns a character's secondary class and exposes
+-- a `.multiclass` command; Eluna's Player:RunCommand lets this gossip drive it.
+-- Everything here degrades to a no-op when the module is not installed.
+local SECONDARY_CLASSES = {
+    { id = 1,  name = "Warrior" },
+    { id = 2,  name = "Paladin" },
+    { id = 3,  name = "Hunter" },
+    { id = 4,  name = "Rogue" },
+    { id = 5,  name = "Priest" },
+    { id = 7,  name = "Shaman" },
+    { id = 8,  name = "Mage" },
+    { id = 9,  name = "Warlock" },
+    { id = 11, name = "Druid" },
+}
+
+-- Death Knight (6) is deliberately not offered: the rune system is hardcoded to
+-- the class, so mod-multiclass rejects it as a secondary unless its
+-- Multiclass.AllowDeathKnightSecondary option is enabled. With that option on,
+-- use `.multiclass choose deathknight` directly.
+
+local secondClassColumnChecked = nil
+
+-- The column is created by mod-multiclass' module SQL. Probe it once so a
+-- server running without the module never logs a failed query.
+local function HasSecondClassColumn()
+    if secondClassColumnChecked == nil then
+        local q = CharDBQuery("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() " ..
+                              "AND TABLE_NAME = 'characters' AND COLUMN_NAME = 'secondary_class'")
+        secondClassColumnChecked = (q and q:GetUInt32(0) > 0) or false
+    end
+    return secondClassColumnChecked
+end
+
+local function GetSecondClassId(player)
+    if not HasSecondClassColumn() then return 0 end
+    local q = CharDBQuery("SELECT secondary_class FROM characters WHERE guid = " .. player:GetGUIDLow())
+    return (q and q:GetUInt32(0)) or 0
+end
+
+local function GetSecondClassName(classId)
+    for _, info in ipairs(SECONDARY_CLASSES) do
+        if info.id == classId then return info.name end
+    end
+    -- Values the menu does not offer (Death Knight when allowed, or a stale row).
+    if classId == 6 then return "Death Knight" end
+    return "Unknown"
+end
+
+-- Runs a `.multiclass` sub-command as the player. The command applies the
+-- change immediately (identity, proficiencies, power pool) and announces it.
+local function RunMulticlassCommand(player, args)
+    if not player.RunCommand then return end
+    player:RunCommand("multiclass " .. args)
+end
+
+-- Clears the stored secondary class, quietly skipping players who have none
+-- (used by the prestige resets so they never print a spurious error).
+local function ClearSecondClassIfAny(player)
+    if GetSecondClassId(player) > 0 then
+        RunMulticlassCommand(player, "clear")
+    end
+end
+
+
 
 local function ResetPlayerQuests(guid, class)
     local dkQuests = {}
@@ -277,6 +342,17 @@ local function ShowMainMenu(player, creature)
         player:GossipMenuAddItem(0, "Show My Draft Stats", 1, 300)
     end
 
+    -- Secondary class (mod-multiclass). Hidden while the module's column is
+    -- absent so a server without the module keeps the stock menu.
+    if HasSecondClassColumn() then
+        local currentClass = GetSecondClassId(player)
+        if currentClass > 0 then
+            player:GossipMenuAddItem(0, "My second class: " .. GetSecondClassName(currentClass), 1, 400)
+        else
+            player:GossipMenuAddItem(0, "Choose my second class", 1, 400)
+        end
+    end
+
     -- Exit
     player:GossipMenuAddItem(0, "Goodbye", 1, 999)
 
@@ -341,6 +417,32 @@ local function ShowDraftStatsMenu(player, creature)
 
     player:GossipMenuAddItem(0, "Back", 1, 0)
     player:GossipSendMenu(100306, creature)
+end
+
+-- Secondary class picker (mod-multiclass). Each class entry maps to intid
+-- 500 + class id; 401 clears the stored secondary class.
+local function ShowSecondaryClassMenu(player, creature)
+    player:GossipClearMenu()
+
+    local primaryClass = player:GetClass()
+    local currentClass = GetSecondClassId(player)
+
+    if currentClass > 0 then
+        player:GossipMenuAddItem(0, "Current second class: " .. GetSecondClassName(currentClass), 1, 998)
+    end
+
+    for _, info in ipairs(SECONDARY_CLASSES) do
+        if info.id ~= primaryClass then
+            player:GossipMenuAddItem(0, "Learn " .. info.name .. " as my second class", 1, 500 + info.id)
+        end
+    end
+
+    if currentClass > 0 then
+        player:GossipMenuAddItem(0, "Forget my second class (clear)", 1, 401)
+    end
+
+    player:GossipMenuAddItem(0, "Back", 1, 0)
+    player:GossipSendMenu(100301, creature)
 end
 
 -- Gossip handler
@@ -446,6 +548,9 @@ local function DoPrestige(player, draftMode)
 
     -- Draft mode only:
     if draftMode then
+        -- A draft run redrafts the character from scratch, so the secondary
+        -- class (a traditional-multiclass concept) is cleared for a fresh pick.
+        ClearSecondClassIfAny(player)
         player:SendBroadcastMessage("Draft Mode: Enabled for next run.")
 
 
@@ -640,6 +745,10 @@ local function DoDraftEnd(player)
         return
     end
 
+    -- Leaving draft mode restores the primary class from scratch, so the
+    -- secondary class is cleared and re-chosen against it.
+    ClearSecondClassIfAny(player)
+
     -- Reset draft state
     local currentPrestige = 0
     local qPrestige = CharDBQuery("SELECT prestige_level FROM prestige_stats WHERE player_id = " .. guid)
@@ -827,7 +936,15 @@ local function OnGossipSelect(event, player, creature, sender, intid)
         end
         player:GossipMenuAddItem(0, "Back", 1, 300)
         player:GossipSendMenu(100306, creature) 
-  elseif intid >= 100000 then
+    elseif intid == 400 then
+        ShowSecondaryClassMenu(player, creature)
+    elseif intid == 401 then
+        RunMulticlassCommand(player, "clear")
+        ShowMainMenu(player, creature)
+    elseif intid >= 501 and intid <= 511 then
+        RunMulticlassCommand(player, "choose " .. (intid - 500))
+        ShowMainMenu(player, creature)
+    elseif intid >= 100000 then
     local spellId = intid - 100000
     CharDBExecute("DELETE FROM draft_bans WHERE player_id = " .. guid .. " AND spell_id = " .. spellId)
     player:SendBroadcastMessage("Removed banned spell ID: " .. spellId)
