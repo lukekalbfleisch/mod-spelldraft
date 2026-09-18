@@ -107,6 +107,95 @@ local function GetStoredClass(player)
 end
 
 -- On login: ensure DB row, give title, maybe start ticker
+-- ── First-login grants ─────────────────────────────────────────────────────
+-- The core's `playercreateinfo_spell_custom` table ships EMPTY in this repo
+-- (data/sql/base/db_world/playercreateinfo_spell_custom.sql carries the schema
+-- and no rows), so character creation hands out no racial and no class spells.
+-- Both game modes therefore grant them here. Proficiencies are NOT in this
+-- group: those are skills, and the core's `playercreateinfo_skills` data does
+-- provide the class-appropriate ones (`Player::LearnDefaultSkills`).
+
+local RACIAL_SPELLS = {
+    [1]  = { 59752, 20598, 20599, 20597, 20864 }, -- Human: Every Man for Himself, The Human Spirit, Diplomacy, Sword Spec, Mace Spec
+    [2]  = { 20572, 20573, 20575, 20574 },         -- Orc: Blood Fury, Hardiness, Command, Axe Spec
+    [3]  = { 20594, 20596, 20595, 2481, 59224 },   -- Dwarf: Stoneform, Frost Resistance, Gun Spec, Find Treasure, Mace Spec
+    [4]  = { 58984, 20582, 20585, 20583 },         -- Night Elf: Shadowmeld, Quickness, Wisp Spirit, Nature Resistance
+    [5]  = { 7744, 20577, 5227, 20579 },           -- Undead: Will of the Forsaken, Cannibalize, Underwater Breathing, Shadow Resistance
+    [6]  = { 20549, 20550, 20552, 20551 },         -- Tauren: War Stomp, Endurance, Cultivation, Nature Resistance
+    [7]  = { 20589, 20591, 20593, 20592 },         -- Gnome: Escape Artist, Expansive Mind, Engineering Spec, Arcane Resistance
+    [8]  = { 26297, 20555, 20557, 20558, 26290, 58943 }, -- Troll: Berserking, Regeneration, Beast Slaying, Bow Spec, Throwing Spec, Da Voodoo Shuffle
+    [10] = { 28730, 20554, 822 },                  -- Blood Elf: Arcane Torrent, Arcane Affinity, Magic Resistance
+    [11] = { 59547, 28878, 28875, 28877 },         -- Draenei: Gift of the Naaru, Heroic Presence, Gemcutting, Shadow Resistance
+}
+
+-- The opener set per class; everything else comes from the class trainer. Death
+-- Knight is created at level 55, so its row is the full level-55 starter kit (the
+-- same list the prestige path re-grants at data/sql/.../spelldraft_npc.lua).
+local STARTING_CLASS_SPELLS = {
+    [1]  = { 78, 2457 },             -- Warrior: Heroic Strike, Battle Stance
+    [2]  = { 21084, 635 },           -- Paladin: Seal of Righteousness, Holy Light
+    [3]  = { 2973, 75 },             -- Hunter: Raptor Strike, Auto Shot
+    [4]  = { 1752 },                 -- Rogue: Sinister Strike
+    [5]  = { 585, 2050 },            -- Priest: Smite, Lesser Heal
+    [6]  = { 47541, 49576, 45477, 45462, 45902, 48266, 48263, 50977, 53428, 48778 },
+                                     -- DK: Death Coil, Death Grip, Icy Touch, Plague Strike, Blood Strike,
+                                     -- Blood Presence, Frost Presence, Death Gate, Runeforging, Deathcharger
+    [7]  = { 403, 331 },             -- Shaman: Lightning Bolt, Healing Wave
+    [8]  = { 133, 168 },             -- Mage: Fireball, Frost Armor
+    [9]  = { 686, 688 },             -- Warlock: Shadow Bolt, Summon Imp
+    [11] = { 5176, 5185 },           -- Druid: Wrath, Healing Touch
+}
+
+-- Grants the character's racial actives/passives, skipping the ones it already
+-- has (some occupy the same slot on several races).
+local function GrantRacialSpells(player)
+    local list = RACIAL_SPELLS[player:GetRace()]
+    if not list then return end
+    for _, spellId in ipairs(list) do
+        local hasSpell
+        if DUPLICATE_RACIAL_GROUPS[spellId] then
+            hasSpell = HasAnySpell(player, DUPLICATE_RACIAL_GROUPS[spellId])
+        else
+            hasSpell = player:HasSpell(spellId)
+        end
+        if not hasSpell then
+            player:LearnSpell(spellId)
+        end
+    end
+end
+
+-- Grants the class's level-1 opener set.
+local function GrantStartingClassSpells(player, class)
+    local classSpells = STARTING_CLASS_SPELLS[class or player:GetClass()]
+    if not classSpells then return end
+    for _, spellId in ipairs(classSpells) do
+        if not player:HasSpell(spellId) then
+            player:LearnSpell(spellId)
+        end
+    end
+end
+
+-- The custom race/class combos added by
+-- data/sql/db-world/04_custom_race_class_and_shapeshifting.sql have no
+-- `playercreateinfo_item` rows, so their starting gear is handed out here. This
+-- is about character creation rather than drafting, so it runs in both modes.
+local function GrantCustomComboStartingGear(player)
+    if player:GetClass() ~= 8 then return end
+    local race = player:GetRace()
+    if race ~= 2 and race ~= 4 and race ~= 6 then return end
+
+    player:AddItem(45, 1)    -- Squire's Shirt
+    player:AddItem(39, 1)    -- Recruit's Pants
+    player:AddItem(55, 1)    -- Apprentice's Boots
+    player:AddItem(35, 1)    -- Bent Staff
+    player:AddItem(159, 5)   -- Refreshing Spring Water
+
+    player:EquipItem(45, 3)
+    player:EquipItem(39, 6)
+    player:EquipItem(55, 7)
+    player:EquipItem(35, 15)
+end
+
 local function EnsurePrestigeEntry(_, player)
     if IsBotPlayer(player) then return end
     CONFIG.EnsurePlayerLanguage(player)
@@ -161,57 +250,10 @@ local function EnsurePrestigeEntry(_, player)
                 end
 
                 -- Ensure all racial active and passive abilities
-                local race = p:GetRace()
-                local racialSpells = {
-                    [1]  = { 59752, 20598, 20599, 20597, 20864 }, -- Human: Every Man for Himself, The Human Spirit, Diplomacy, Sword Spec, Mace Spec
-                    [2]  = { 20572, 20573, 20575, 20574 },         -- Orc: Blood Fury, Hardiness, Command, Axe Spec
-                    [3]  = { 20594, 20596, 20595, 2481, 59224 },   -- Dwarf: Stoneform, Frost Resistance, Gun Spec, Find Treasure, Mace Spec
-                    [4]  = { 58984, 20582, 20585, 20583 },         -- Night Elf: Shadowmeld, Quickness, Wisp Spirit, Nature Resistance
-                    [5]  = { 7744, 20577, 5227, 20579 },           -- Undead: Will of the Forsaken, Cannibalize, Underwater Breathing, Shadow Resistance
-                    [6]  = { 20549, 20550, 20552, 20551 },         -- Tauren: War Stomp, Endurance, Cultivation, Nature Resistance
-                    [7]  = { 20589, 20591, 20593, 20592 },         -- Gnome: Escape Artist, Expansive Mind, Engineering Spec, Arcane Resistance
-                    [8]  = { 26297, 20555, 20557, 20558, 26290, 58943 }, -- Troll: Berserking, Regeneration, Beast Slaying, Bow Spec, Throwing Spec, Da Voodoo Shuffle
-                    [10] = { 28730, 20554, 822 },                  -- Blood Elf: Arcane Torrent, Arcane Affinity, Magic Resistance
-                    [11] = { 59547, 28878, 28875, 28877 },         -- Draenei: Gift of the Naaru, Heroic Presence, Gemcutting, Shadow Resistance
-                }
-                local list = racialSpells[race]
-                if list then
-                    for _, spellId in ipairs(list) do
-                        local hasSpell = false
-                        if DUPLICATE_RACIAL_GROUPS[spellId] then
-                            hasSpell = HasAnySpell(p, DUPLICATE_RACIAL_GROUPS[spellId])
-                        else
-                            hasSpell = p:HasSpell(spellId)
-                        end
-                        if not hasSpell then
-                            p:LearnSpell(spellId)
-                        end
-                    end
-                end
+                GrantRacialSpells(p)
 
                 -- Ensure starting class spells for their stored class
-                local STARTING_CLASS_SPELLS = {
-                    [1]  = { 78, 2457 },             -- Warrior: Heroic Strike, Battle Stance
-                    [2]  = { 21084, 635 },           -- Paladin: Seal of Righteousness, Holy Light
-                    [3]  = { 2973, 75 },            -- Hunter: Raptor Strike, Auto Shot
-                    [4]  = { 1752 },                 -- Rogue: Sinister Strike
-                    [5]  = { 585, 2050 },            -- Priest: Smite, Lesser Heal
-                    [7]  = { 403, 331 },             -- Shaman: Lightning Bolt, Healing Wave
-                    [8]  = { 133, 168 },             -- Mage: Fireball, Frost Armor
-                    [9]  = { 686, 688 },             -- Warlock: Shadow Bolt, Summon Imp
-                    [11] = { 5176, 5185 },           -- Druid: Wrath, Healing Touch
-                }
-                local storedClass = GetStoredClass(p)
-                print(string.format("[EnsurePrestigeEntry] Player: %s (%d), StoredClass: %s", p:GetName(), guid, tostring(storedClass)))
-                local classSpells = storedClass and STARTING_CLASS_SPELLS[storedClass]
-                if classSpells then
-                    for _, sid in ipairs(classSpells) do
-                        print(string.format("[EnsurePrestigeEntry] Teaching starting spell: %d to %s", sid, p:GetName()))
-                        if not p:HasSpell(sid) then
-                            p:LearnSpell(sid)
-                        end
-                    end
-                end
+                GrantStartingClassSpells(p, GetStoredClass(p))
 
                 if type(SpellDraft_SetSystemLearning) == "function" then
                     SpellDraft_SetSystemLearning(guid, false)
@@ -222,139 +264,149 @@ local function EnsurePrestigeEntry(_, player)
         end, 3000, 1)
 
     else
+        -- Brand-new character: create the prestige row, then start it in whichever
+        -- state the server-wide GAME_MODE selects.
         local class = player:GetClass()
-        local startingDrafts = (class == 6) and 5 or CONFIG.DRAFT_MODE_SPELLS
-        local startingPoints = (class == 6) and 54 or 0
-        -- Start drafting immediately on first login!
-        -- Synchronous write: spell_choice.lua's delayed first-login retry (and any
-        -- early SC_CHECK / zone change) must be able to read this row right away.
-        CharDBQuery(string.format([[
-            INSERT INTO prestige_stats
-            (player_id, prestige_level, draft_state, stored_class, total_expected_drafts, rerolls, bans, talent_points)
-            VALUES (%d, 0, 1, %d, %d, %d, %d, %d)
-        ]], guid, class, startingDrafts, CONFIG.DRAFT_MODE_REROLLS, CONFIG.DRAFT_BANS_START, startingPoints))
 
-        -- Custom Mage Race starting gear injection
-        if class == 8 then
-            local race = player:GetRace()
-            if race == 2 or race == 4 or race == 6 then
-                player:AddItem(45, 1)    -- Squire's Shirt
-                player:AddItem(39, 1)    -- Recruit's Pants
-                player:AddItem(55, 1)    -- Apprentice's Boots
-                player:AddItem(35, 1)    -- Bent Staff
-                player:AddItem(159, 5)   -- Refreshing Spring Water
-                
-                player:EquipItem(45, 3)
-                player:EquipItem(39, 6)
-                player:EquipItem(55, 7)
-                player:EquipItem(35, 15)
-            end
-        end
+        if CONFIG.IsTraditionalMode() then
+            -- Traditional mode: the character keeps the class it was created with
+            -- and trains normally, so it begins OUT of draft and nothing is
+            -- stripped from its spellbook. The row still has to exist - both the
+            -- Grimoire's point pool and the per-level grant in OnLevelUp write to
+            -- `prestige_stats`. Points are seeded at one per level reached: that is
+            -- what a character which levelled from 1 has accrued, and it gives a
+            -- Death Knight (created at 55) the 54 points the draft start grants.
+            -- Synchronous write: spell_choice.lua reads draft_state on login.
+            CharDBQuery(string.format([[
+                INSERT INTO prestige_stats
+                (player_id, prestige_level, draft_state, stored_class, total_expected_drafts, rerolls, bans, talent_points)
+                VALUES (%d, 0, 0, %d, 0, 0, 0, %d)
+            ]], guid, class, math.max(player:GetLevel() - 1, 0)))
 
-        draftStateCache[guid] = true
+            draftStateCache[guid] = false
 
-        CreateLuaEvent(function()
-            local p = GetPlayerByGUID(guid)
-            if not p or not p:IsInWorld() then return end
+            -- Custom race/class combos ship no createinfo rows for their gear.
+            GrantCustomComboStartingGear(player)
 
-            -- Remove default starting class spells so player starts classless (excluding any spells already drafted during the login race window)
-            local spellsQ = CharDBQuery("SELECT spell FROM character_spell WHERE guid = " .. guid .. " AND spell NOT IN (SELECT spell_id FROM drafted_spells WHERE player_guid = " .. guid .. ")")
-            if spellsQ then
-                local spellsToRemove = {}
-                repeat
-                    local spellId = spellsQ:GetUInt32(0)
-                    local spellCheck = WorldDBQuery("SELECT ClassMask FROM skilllineability_dbc WHERE Spell = " .. spellId)
-                    if spellCheck and spellCheck:GetUInt32(0) > 0 then
-                        table.insert(spellsToRemove, spellId)
-                    end
-                until not spellsQ:NextRow()
+            CreateLuaEvent(function()
+                local p = GetPlayerByGUID(guid)
+                if not p or not p:IsInWorld() then return end
 
-                for _, spellId in ipairs(spellsToRemove) do
-                    p:RemoveSpell(spellId)
+                -- The core's `playercreateinfo_spell_custom` table is empty in this
+                -- repo, so character creation grants neither racials nor class
+                -- spells; both are handed out here (see the grants above).
+                if type(SpellDraft_SetSystemLearning) == "function" then
+                    SpellDraft_SetSystemLearning(guid, true)
                 end
-            end
-
-            -- Bypass the draft anti-cheat while the module itself teaches spells,
-            -- or every grant below gets blocked and removed again.
-            if type(SpellDraft_SetSystemLearning) == "function" then
-                SpellDraft_SetSystemLearning(guid, true)
-            end
-
-            -- Grant all armor and weapon proficiencies
-            local proficiencies = {
-                -- Armor
-                9078,   -- Cloth
-                9077,   -- Leather
-                8737,   -- Mail
-                750,    -- Plate Mail
-                -- Weapons
-                196,    -- One-Handed Axes
-                197,    -- Two-Handed Axes
-                198,    -- One-Handed Maces
-                199,    -- Two-Handed Maces
-                201,    -- One-Handed Swords
-                202,    -- Two-Handed Swords
-                227,    -- Staves
-                1180,   -- Daggers
-                200,    -- Polearms
-                15590,  -- Fist Weapons
-                264,    -- Bows
-                5011,   -- Crossbows
-                266,    -- Guns
-                2567,   -- Thrown
-                5009,   -- Wands
-                107,    -- Block (Shield use)
-                75,     -- Auto Shot
-                5019,   -- Shoot
-                2764,   -- Throw
-            }
-            for _, spellId in ipairs(proficiencies) do
-                if not p:HasSpell(spellId) then
-                    p:LearnSpell(spellId)
+                GrantRacialSpells(p)
+                GrantStartingClassSpells(p, class)
+                if type(SpellDraft_SetSystemLearning) == "function" then
+                    SpellDraft_SetSystemLearning(guid, false)
                 end
-            end
 
-            -- Ensure all racial active and passive abilities
-            local race = p:GetRace()
-            local racialSpells = {
-                [1]  = { 59752, 20598, 20599, 20597, 20864 }, -- Human: Every Man for Himself, The Human Spirit, Diplomacy, Sword Spec, Mace Spec
-                [2]  = { 20572, 20573, 20575, 20574 },         -- Orc: Blood Fury, Hardiness, Command, Axe Spec
-                [3]  = { 20594, 20596, 20595, 2481, 59224 },   -- Dwarf: Stoneform, Frost Resistance, Gun Spec, Find Treasure, Mace Spec
-                [4]  = { 58984, 20582, 20585, 20583 },         -- Night Elf: Shadowmeld, Quickness, Wisp Spirit, Nature Resistance
-                [5]  = { 7744, 20577, 5227, 20579 },           -- Undead: Will of the Forsaken, Cannibalize, Underwater Breathing, Shadow Resistance
-                [6]  = { 20549, 20550, 20552, 20551 },         -- Tauren: War Stomp, Endurance, Cultivation, Nature Resistance
-                [7]  = { 20589, 20591, 20593, 20592 },         -- Gnome: Escape Artist, Expansive Mind, Engineering Spec, Arcane Resistance
-                [8]  = { 26297, 20555, 20557, 20558, 26290, 58943 }, -- Troll: Berserking, Regeneration, Beast Slaying, Bow Spec, Throwing Spec, Da Voodoo Shuffle
-                [10] = { 28730, 20554, 822 },                  -- Blood Elf: Arcane Torrent, Arcane Affinity, Magic Resistance
-                [11] = { 59547, 28878, 28875, 28877 },         -- Draenei: Gift of the Naaru, Heroic Presence, Gemcutting, Shadow Resistance
-            }
-            local list = racialSpells[race]
-            if list then
-                for _, spellId in ipairs(list) do
-                    local hasSpell = false
-                    if DUPLICATE_RACIAL_GROUPS[spellId] then
-                        hasSpell = HasAnySpell(p, DUPLICATE_RACIAL_GROUPS[spellId])
-                    else
-                        hasSpell = p:HasSpell(spellId)
+                local locationMsg = (p:GetTeam() == 1) and CHROMIE_LOCATION_HORDE or CHROMIE_LOCATION_ALLIANCE
+                p:SendBroadcastMessage(
+                    "|cff00ccffWelcome!|r This server plays |cffffcc00traditional|r: you keep your class and may " ..
+                    "pick a |cff00ccffsecond class|r, and your Grimoire holds both talent trees. " ..
+                    "Choose one at Chromie - " .. locationMsg .. " Class trainers teach the rest of your spells.")
+            end, 2000, 1)
+        else
+            local startingDrafts = (class == 6) and 5 or CONFIG.DRAFT_MODE_SPELLS
+            local startingPoints = (class == 6) and 54 or 0
+            -- Start drafting immediately on first login!
+            -- Synchronous write: spell_choice.lua's delayed first-login retry (and any
+            -- early SC_CHECK / zone change) must be able to read this row right away.
+            CharDBQuery(string.format([[
+                INSERT INTO prestige_stats
+                (player_id, prestige_level, draft_state, stored_class, total_expected_drafts, rerolls, bans, talent_points)
+                VALUES (%d, 0, 1, %d, %d, %d, %d, %d)
+            ]], guid, class, startingDrafts, CONFIG.DRAFT_MODE_REROLLS, CONFIG.DRAFT_BANS_START, startingPoints))
+
+            -- Custom Mage Race starting gear injection
+            GrantCustomComboStartingGear(player)
+
+            draftStateCache[guid] = true
+
+            CreateLuaEvent(function()
+                local p = GetPlayerByGUID(guid)
+                if not p or not p:IsInWorld() then return end
+
+                -- Remove default starting class spells so player starts classless (excluding any spells already drafted during the login race window)
+                local spellsQ = CharDBQuery("SELECT spell FROM character_spell WHERE guid = " .. guid .. " AND spell NOT IN (SELECT spell_id FROM drafted_spells WHERE player_guid = " .. guid .. ")")
+                if spellsQ then
+                    local spellsToRemove = {}
+                    repeat
+                        local spellId = spellsQ:GetUInt32(0)
+                        local spellCheck = WorldDBQuery("SELECT ClassMask FROM skilllineability_dbc WHERE Spell = " .. spellId)
+                        if spellCheck and spellCheck:GetUInt32(0) > 0 then
+                            table.insert(spellsToRemove, spellId)
+                        end
+                    until not spellsQ:NextRow()
+
+                    for _, spellId in ipairs(spellsToRemove) do
+                        p:RemoveSpell(spellId)
                     end
-                    if not hasSpell then
+                end
+
+                -- Bypass the draft anti-cheat while the module itself teaches spells,
+                -- or every grant below gets blocked and removed again.
+                if type(SpellDraft_SetSystemLearning) == "function" then
+                    SpellDraft_SetSystemLearning(guid, true)
+                end
+
+                -- Grant all armor and weapon proficiencies
+                local proficiencies = {
+                    -- Armor
+                    9078,   -- Cloth
+                    9077,   -- Leather
+                    8737,   -- Mail
+                    750,    -- Plate Mail
+                    -- Weapons
+                    196,    -- One-Handed Axes
+                    197,    -- Two-Handed Axes
+                    198,    -- One-Handed Maces
+                    199,    -- Two-Handed Maces
+                    201,    -- One-Handed Swords
+                    202,    -- Two-Handed Swords
+                    227,    -- Staves
+                    1180,   -- Daggers
+                    200,    -- Polearms
+                    15590,  -- Fist Weapons
+                    264,    -- Bows
+                    5011,   -- Crossbows
+                    266,    -- Guns
+                    2567,   -- Thrown
+                    5009,   -- Wands
+                    107,    -- Block (Shield use)
+                    75,     -- Auto Shot
+                    5019,   -- Shoot
+                    2764,   -- Throw
+                }
+                for _, spellId in ipairs(proficiencies) do
+                    if not p:HasSpell(spellId) then
                         p:LearnSpell(spellId)
                     end
                 end
-            end
 
-            if type(SpellDraft_SetSystemLearning) == "function" then
-                SpellDraft_SetSystemLearning(guid, false)
-            end
+                -- Ensure all racial active and passive abilities
+                GrantRacialSpells(p)
 
-            -- Sync resource states
-            ApplyDraftPowerTypes(p)
-            StartDraftPowerTicker(p)
+                -- Drafted characters keep the classless start: no class spells here,
+                -- the draft pool is their spellbook instead.
 
-            -- Grant Tome of Talents
-            p:AddItem(25462, 1)
-            p:SendBroadcastMessage("You have been granted a |cff00ccffTome of Talents|r! Use it to draft your first passive talent.")
-        end, 2000, 1)
+                if type(SpellDraft_SetSystemLearning) == "function" then
+                    SpellDraft_SetSystemLearning(guid, false)
+                end
+
+                -- Sync resource states
+                ApplyDraftPowerTypes(p)
+                StartDraftPowerTicker(p)
+
+                -- Grant Tome of Talents
+                p:AddItem(25462, 1)
+                p:SendBroadcastMessage("You have been granted a |cff00ccffTome of Talents|r! Use it to draft your first passive talent.")
+                end, 2000, 1)
+        end
     end
 end
 
@@ -426,5 +478,10 @@ RegisterPlayerEvent(28, OnRebuildEvent)       -- On map change
 RegisterPlayerEvent(35, OnRebuildEvent)       -- On repop
 RegisterPlayerEvent(36, OnRebuildEvent)       -- On resurrect
 RegisterPlayerEvent(12, OnGiveXP)            -- PLAYER_EVENT_ON_GIVE_XP
+
+print(string.format("[SpellDraft] GAME_MODE = %s: new characters start %s.",
+    CONFIG.GAME_MODE,
+    CONFIG.IsTraditionalMode() and "with their class (drafting is opt-in at Chromie)"
+                                or "classless and drafting"))
 
 

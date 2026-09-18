@@ -3,6 +3,24 @@ CONFIG = {
 
     NPC_ID = 2069426, --Default Custom Chromie npc. But can be put on any npc with a Gossip Flag
 
+    ---------------------------------------------------------------------------
+    -- GAME_MODE -- what a brand-new character starts as (server-wide).
+    --
+    --   "traditional" -- the character keeps the class it was created with and
+    --                    may pick one optional SECOND class (mod-multiclass,
+    --                    through Chromie's menu or the `.multiclass` command).
+    --                    The Grimoire offers exactly those two class trees,
+    --                    funded by a talent point per level, and drafting stays
+    --                    opt-in through Chromie's prestige menu. This is the
+    --                    default.
+    --   "draft"       -- classic SpellDraft: every new character starts classless
+    --                    and drafts its spells, then its talents.
+    --
+    -- This only decides the state a brand-new character is created in; existing
+    -- characters keep whatever `prestige_stats.draft_state` they already have.
+    ---------------------------------------------------------------------------
+    GAME_MODE = "traditional",
+
     DRAFT_MODE_REROLLS = 2, --Base rerolls for a brand new character (prestige 0)
 
     DRAFT_MODE_SPELLS = 1,  --Base Amount of Spells a player gets when starting Draft
@@ -675,6 +693,17 @@ CONFIG = {
         [5] = 600000,   -- Legendary enchant: 60g
     },
 }
+
+-- Normalise the mode so a typo can never silently disable drafting: only the
+-- exact string "draft" selects the draft start, everything else is traditional.
+CONFIG.GAME_MODE = (CONFIG.GAME_MODE == "draft") and "draft" or "traditional"
+
+--- True when the server runs in traditional (two-class) mode. Brand-new
+--- characters then keep their class and pick an optional second one, instead of
+--- starting classless and drafting.
+function CONFIG.IsTraditionalMode()
+    return CONFIG.GAME_MODE == "traditional"
+end
 
 function CONFIG.EnsurePlayerLanguage(player)
     local race = player:GetRace()

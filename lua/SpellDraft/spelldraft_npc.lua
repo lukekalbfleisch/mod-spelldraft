@@ -356,7 +356,17 @@ local function ShowPrestigeOptions(player, creature)
         player:GossipMenuAddItem(0, "Back", 1, 0)
         player:GossipSendMenu(100308, creature)
     else
-        player:GossipMenuAddItem(0, "Prestige", 1, 4)
+        -- Two ways to prestige: keep your classes, or redraft the character in Draft
+        -- Mode. Both routes are always offered - the server-wide GAME_MODE only
+        -- decides which one a brand-new character starts in (and therefore which
+        -- one is listed first).
+        if CONFIG.IsTraditionalMode() then
+            player:GossipMenuAddItem(0, "Prestige (stay with my classes)", 1, 3)
+            player:GossipMenuAddItem(0, "Prestige into Draft Mode", 1, 4)
+        else
+            player:GossipMenuAddItem(0, "Prestige into Draft Mode", 1, 4)
+            player:GossipMenuAddItem(0, "Prestige (stay with my classes)", 1, 3)
+        end
         player:GossipMenuAddItem(0, "Back", 1, 0)
         player:GossipSendMenu(100303, creature)
     end

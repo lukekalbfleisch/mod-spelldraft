@@ -95,12 +95,35 @@ Any creature can rarely drop one (bosses far more often), and three **Forgotten 
 
 ---
 
+## Game Modes
+
+`GAME_MODE` in `lua_scripts/spelldraft_config.lua` decides what a **brand-new**
+character starts as. Existing characters are never converted — each one keeps the
+`prestige_stats.draft_state` it already has.
+
+| Mode | A new character starts | Talent access | Spellbook |
+| :--- | :--- | :--- | :--- |
+| `traditional` *(default)* | With the class it was created with, **out of draft** (`draft_state = 0`) | The Grimoire lists the primary class's tree **plus a second class's** tree — pick one at Chromie or with `.multiclass` — funded by 1 point per level | The class opener set, then whatever the class trainer teaches |
+| `draft` | **Classless**, drafting immediately (`draft_state = 1`) | Any class's talents, plus Tome of Talents drafts | Drafted from the active-spell pool |
+
+In both modes the module grants the character's racial abilities and its class
+opener set on first login, because this server ships an empty
+`playercreateinfo_spell_custom` table (character creation hands out no spells),
+and both modes can open the Grimoire with `/spelldraft`: the point pool lives in
+`prestige_stats.talent_points` and grows by one point per level either way.
+
+Drafting stays available under `traditional`: Chromie's prestige menu offers both
+**Prestige (stay with my classes)** and **Prestige into Draft Mode**, and ending a
+draft run restores the character's own class afterwards.
+
+---
+
 ## Talent Points & Passive Progression
 
 To give you more control over your character's build, `mod-spelldraft` features a custom Talent Point system alongside the active spell drafting:
 
 *   **Earning Talent Points:** You earn **1 Talent Point per level-up** (from level 2 to 80). Death Knights are granted **54 Talent Points** on character creation (at level 55) to catch up.
-*   **Purchasing Passives:** Open your Grimoire (type `/spelldraft` or click the *Grimoire* button on your talent frame) and and there you will find the **Talents** section. You can click on any unlocked passive talent from any class to purchase it using your points.
+*   **Purchasing Passives:** Open your Grimoire (type `/spelldraft` or click the *Grimoire* button on your talent frame) and and there you will find the **Talents** section. You can click on any unlocked passive talent from any class to purchase it using your points. Under `GAME_MODE = "traditional"` the list is narrowed to your own class trees — the primary class plus the second class you picked — while draft mode keeps every class available.
 *   **Locked Talents (Draft-Only):** Active abilities, shapeshift forms, and playstyle-defining passive talents (like *Titan's Grip*, *Metamorphosis*, or *Tree of Life*) are **locked** (marked with a lock icon in the UI). These **cannot** be purchased with points and must be rolled and drafted from a **Tome of Talents** (drops chance from enemies and Bosses).
 *   **Respecs:** If you wish to change your build, talk to **Nibbs the Imp** in starter zones or capital cities. He will reset all manually purchased talents and refund all spent points for free. Spells and talents you obtained through drafts are locked in and will not be touched by respecs.
 
@@ -258,6 +281,7 @@ You can customize the draft system parameters by editing `lua_scripts/spelldraft
 
 | Parameter | Default | Description |
 | :--- | :--- | :--- |
+| `GAME_MODE` | `"traditional"` | What a **brand-new** character starts as. `"traditional"`: keeps the class it was created with and may pick one optional second class (mod-multiclass), with the Grimoire offering both classes' talent trees. `"draft"`: the original classless SpellDraft start. Existing characters keep their stored `draft_state` either way. Any value that is not exactly `"draft"` is treated as `"traditional"`, so a typo cannot silently disable drafting. |
 | `MAX_LEVEL` | `80` | Level required to venture into Prestige Mode via gossip. |
 | `NPC_ID` | `2069426` | Custom Chromie NPC gossip trigger. |
 | `DRAFT_MODE_REROLLS` | `2` | Base reroll tokens given to characters starting a draft run (prestige 0). |
