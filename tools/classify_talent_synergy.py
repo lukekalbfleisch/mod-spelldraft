@@ -501,7 +501,7 @@ def analyze_breakdown(results, index):
 # needs-redesign breakdown report
 # ============================================================================
 
-def breakdown_head(rows):
+def breakdown_head(rows, overrides=0):
     """Markdown: the needs-redesign work split by what the fix requires."""
     lines = []
     add = lines.append
@@ -513,6 +513,11 @@ def breakdown_head(rows):
 
     add("# needs-redesign breakdown (Phase 1d follow-up)")
     add("")
+    if overrides:
+        add(f"Generated with the live `spell_dbc` overrides applied ({overrides} rows), so the")
+        add("chains already broadened by `tools/broaden_talent_scoping.py` are no longer listed")
+        add("here. Drop `--apply-spell-dbc` for the stock-Spell.dbc view.")
+        add("")
     add(f"The {total} chains labelled `needs-redesign` by `tools/classify_talent_synergy.py`,")
     add("split by what the fix actually requires. A chain's tier is the **worst** op it uses,")
     add("because one stubborn op blocks the whole chain.")
@@ -571,9 +576,9 @@ def breakdown_head(rows):
     return lines, add, tier1, improved
 
 
-def render_breakdown(rows):
+def render_breakdown(rows, overrides=0):
     """The full breakdown document."""
-    lines, add, tier1, improved = breakdown_head(rows)
+    lines, add, tier1, improved = breakdown_head(rows, overrides)
     add("## Tier 2 - no lever exists")
     add("")
     add("The engine has no per-school aura for these, so each is a policy call:")
@@ -668,6 +673,43 @@ def render_breakdown(rows):
             f"{', '.join('`' + l + '`' for l in levers)} | {row['touched']} | {row['side']} |")
     add("")
     return "\n".join(lines) + "\n"
+
+
+def load_spell_overrides(dbc, spells):
+    """
+    Replace the loaded DBC rows with the live `spell_dbc` overrides.
+
+    The core loads Spell.dbc and then lets spell_dbc replace rows wholesale
+    (DBCStore -> DBCDatabaseLoader walks the DBC format string and reads
+    `SELECT * ... ORDER BY ID DESC` positionally), so this mirrors that: columns
+    map to DBC field indices 1:1. Text columns are left as the DBC value because
+    the loader treats an empty string as "not overridden", and float columns are
+    packed back to their raw bit pattern.
+    """
+    columns = run_query(
+        "SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = 'acore_world' AND TABLE_NAME = 'spell_dbc' ORDER BY ORDINAL_POSITION"
+    )
+    types = [row["DATA_TYPE"] for row in columns]
+    applied = 0
+    for row in run_query("SELECT * FROM spell_dbc"):
+        spell_id = int(row["ID"])
+        if spell_id not in spells:
+            continue
+        base = spells[spell_id]
+        merged = list(base)
+        for index, data_type in enumerate(types):
+            name = columns[index]["COLUMN_NAME"]
+            value = row.get(name)
+            if data_type in ("varchar", "char", "text") or value in (None, ""):
+                continue
+            if data_type == "float":
+                merged[index] = struct.unpack("<i", struct.pack("<f", float(value)))[0]
+            else:
+                merged[index] = int(value)
+        spells[spell_id] = merged
+        applied += 1
+    return applied
 
 
 def report_summary(results, args, chain_source):
@@ -869,6 +911,9 @@ def main():
     parser.add_argument("--breakdown", action="store_true",
                         help="report the needs-redesign chains split by fix tier instead "
                              "of the synergy classification")
+    parser.add_argument("--apply-spell-dbc", action="store_true",
+                        help="overlay the live `spell_dbc` overrides onto Spell.dbc first, "
+                             "so the classification reflects what the server actually loads")
     parser.add_argument("--pairs", type=int, default=15,
                         help="class pairings to show (default: 15, best first)")
     parser.add_argument("--examples", nargs="*", default=[
@@ -886,6 +931,10 @@ def main():
 
     wanted = {spell_id for _, _, _, ranks in chains for spell_id in ranks}
     dbc, spells = load_spells(resolve_dbc(args.dbc), wanted)
+    overrides = 0
+    if args.apply_spell_dbc:
+        overrides = load_spell_overrides(dbc, spells)
+        print(f"applied {overrides} spell_dbc override(s)", file=sys.stderr)
     if len(spells) != len(wanted):
         print(f"note: {len(wanted) - len(spells)} rank spell(s) are not in Spell.dbc",
               file=sys.stderr)
@@ -899,7 +948,7 @@ def main():
     results = classify_chains(chains, dbc, spells, aura_names, school_mask_auras, tab_classes)
 
     if args.breakdown:
-        report = render_breakdown(analyze_breakdown(results, build_family_index(dbc)))
+        report = render_breakdown(analyze_breakdown(results, build_family_index(dbc)), overrides)
     else:
         report = build_report(results, args, school_mask_auras, chain_source, family_names)
     if args.out:
