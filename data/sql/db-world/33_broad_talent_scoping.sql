@@ -17,7 +17,8 @@
 --   python3 tools/broaden_talent_scoping.py
 -- Read from Spell.dbc: /tmp/Spell.dbc
 --
--- REVERT: DELETE FROM `spell_dbc` WHERE `ID` IN (...the ids below...);
+-- To revert, run this file's leading DELETE (it lists every id) and stop there:
+--   DELETE FROM `spell_dbc` WHERE `ID` IN (...);   <- see the statement below
 --
 -- Tooltip debt: these tooltips still name a class and now understate their
 -- scope. Rewording needs the client Spell.dbc (patch-P.mpq via
