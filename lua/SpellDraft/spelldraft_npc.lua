@@ -45,24 +45,8 @@ local SECONDARY_CLASSES = {
 -- Multiclass.AllowDeathKnightSecondary option is enabled. With that option on,
 -- use `.multiclass choose deathknight` directly.
 
-local secondClassColumnChecked = nil
-
--- The column is created by mod-multiclass' module SQL. Probe it once so a
--- server running without the module never logs a failed query.
-local function HasSecondClassColumn()
-    if secondClassColumnChecked == nil then
-        local q = CharDBQuery("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() " ..
-                              "AND TABLE_NAME = 'characters' AND COLUMN_NAME = 'secondary_class'")
-        secondClassColumnChecked = (q and q:GetUInt32(0) > 0) or false
-    end
-    return secondClassColumnChecked
-end
-
-local function GetSecondClassId(player)
-    if not HasSecondClassColumn() then return 0 end
-    local q = CharDBQuery("SELECT secondary_class FROM characters WHERE guid = " .. player:GetGUIDLow())
-    return (q and q:GetUInt32(0)) or 0
-end
+-- The shared secondary-class helpers live on CONFIG (lua/spelldraft_config.lua):
+-- CONFIG.HasSecondaryClassColumn() and CONFIG.GetSecondaryClassId(player).
 
 local function GetSecondClassName(classId)
     for _, info in ipairs(SECONDARY_CLASSES) do
@@ -83,7 +67,7 @@ end
 -- Clears the stored secondary class, quietly skipping players who have none
 -- (used by the prestige resets so they never print a spurious error).
 local function ClearSecondClassIfAny(player)
-    if GetSecondClassId(player) > 0 then
+    if CONFIG.GetSecondaryClassId(player) > 0 then
         RunMulticlassCommand(player, "clear")
     end
 end
@@ -344,8 +328,8 @@ local function ShowMainMenu(player, creature)
 
     -- Secondary class (mod-multiclass). Hidden while the module's column is
     -- absent so a server without the module keeps the stock menu.
-    if HasSecondClassColumn() then
-        local currentClass = GetSecondClassId(player)
+    if CONFIG.HasSecondaryClassColumn() then
+        local currentClass = CONFIG.GetSecondaryClassId(player)
         if currentClass > 0 then
             player:GossipMenuAddItem(0, "My second class: " .. GetSecondClassName(currentClass), 1, 400)
         else
@@ -425,7 +409,7 @@ local function ShowSecondaryClassMenu(player, creature)
     player:GossipClearMenu()
 
     local primaryClass = player:GetClass()
-    local currentClass = GetSecondClassId(player)
+    local currentClass = CONFIG.GetSecondaryClassId(player)
 
     if currentClass > 0 then
         player:GossipMenuAddItem(0, "Current second class: " .. GetSecondClassName(currentClass), 1, 998)

@@ -797,22 +797,34 @@ function SpellDraft.RefreshTalentsList()
     if not SpellDraftTalentDB then return end
     
     local specsToRender = {}
-    if activeClass == "ALL" then
-        for _, classVal in ipairs(CLASS_ORDER) do
-            local classSpecs = CLASS_SPECS[classVal]
-            if classSpecs then
-                for _, specName in ipairs(classSpecs) do
-                    table.insert(specsToRender, { class = classVal, spec = specName })
-                end
-            end
-        end
-    elseif activeClass ~= "GENERAL" then
-        local classSpecs = CLASS_SPECS[activeClass]
+
+    local function AddClassSpecs(classVal)
+        local classSpecs = CLASS_SPECS[classVal]
         if classSpecs then
             for _, specName in ipairs(classSpecs) do
-                table.insert(specsToRender, { class = activeClass, spec = specName })
+                table.insert(specsToRender, { class = classVal, spec = specName })
             end
         end
+    end
+
+    -- Outside draft mode a character only gets its own class trees: the primary
+    -- class plus the secondary class, both reported by the server as
+    -- SpellChoiceTalentClasses. Draft mode keeps the classless Grimoire, so the
+    -- active class tab decides what is shown exactly as before.
+    local ownClassTrees = (SpellDraft.Unlocked == false) and SpellDraft.TalentClasses or nil
+
+    if ownClassTrees then
+        for _, classVal in ipairs(CLASS_ORDER) do
+            if ownClassTrees[classVal] then
+                AddClassSpecs(classVal)
+            end
+        end
+    elseif activeClass == "ALL" then
+        for _, classVal in ipairs(CLASS_ORDER) do
+            AddClassSpecs(classVal)
+        end
+    elseif activeClass ~= "GENERAL" then
+        AddClassSpecs(activeClass)
     end
     
     local yOffset = 0

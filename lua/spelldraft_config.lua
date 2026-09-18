@@ -503,6 +503,63 @@ CONFIG = {
         [53428] = 6,  -- Runeforging (DEATHKNIGHT)
     },
 
+    ---------------------------------------------------------------------------
+    -- MULTICLASS TALENT TREES
+    -- WotLK TalentTab.dbc ids -> Classes id. talent_dbc.TabID identifies which
+    -- talent tree a chain belongs to, so this maps every chain to its owning class.
+    -- Verified by joining data/sql/db-world/06_talent_dbc.sql with the client's
+    -- SpellData_Talents.lua: all 30 class tabs resolve to exactly one class each.
+    --
+    -- Deliberately absent: TabIDs 409, 410, 411. Those are the Hunter *pet* talent
+    -- trees (Cunning / Ferocity / Tenacity, 63 rows of the dump). Pets have their
+    -- own talent system, so a player must never buy them; an unmapped tab is
+    -- therefore not offered outside draft mode (see IsTalentAllowedForPlayer).
+    -- LoadTalentChains logs a warning if a tab ever appears here without a mapping.
+    ---------------------------------------------------------------------------
+
+    TALENT_TAB_CLASS = {
+        -- Mage
+        [41]  = 8,   -- Fire
+        [61]  = 8,   -- Frost
+        [81]  = 8,   -- Arcane
+        -- Warrior
+        [161] = 1,   -- Arms
+        [163] = 1,   -- Protection
+        [164] = 1,   -- Fury
+        -- Rogue
+        [181] = 4,   -- Combat
+        [182] = 4,   -- Assassination
+        [183] = 4,   -- Subtlety
+        -- Priest
+        [201] = 5,   -- Discipline
+        [202] = 5,   -- Holy
+        [203] = 5,   -- Shadow
+        -- Shaman
+        [261] = 7,   -- Elemental
+        [262] = 7,   -- Restoration
+        [263] = 7,   -- Enhancement
+        -- Druid
+        [281] = 11,  -- Feral Combat
+        [282] = 11,  -- Restoration
+        [283] = 11,  -- Balance
+        -- Warlock
+        [301] = 9,   -- Destruction
+        [302] = 9,   -- Affliction
+        [303] = 9,   -- Demonology
+        -- Hunter
+        [361] = 3,   -- Beast Mastery
+        [362] = 3,   -- Survival
+        [363] = 3,   -- Marksmanship
+        -- Paladin
+        [381] = 2,   -- Retribution
+        [382] = 2,   -- Holy
+        [383] = 2,   -- Protection
+        -- Death Knight
+        [398] = 6,   -- Blood
+        [399] = 6,   -- Frost
+        [400] = 6,   -- Unholy
+    },
+
     -- Spells that require the player to already know a prerequisite spell.
     -- Key = spell ID, Value = single prereq ID or table of IDs (any one satisfies).
     SPELL_PREREQUISITES = {
@@ -639,4 +696,47 @@ function CONFIG.EnsurePlayerLanguage(player)
     end
 end
  
+
+---------------------------------------------------------------------------
+-- Multiclass support (mod-multiclass)
+-- The C++ mod-multiclass module stores a character's optional second class in
+-- `characters.secondary_class` (0 = none). Every SpellDraft file dofile()s this
+-- config, so the helpers below are shared by all of them.
+---------------------------------------------------------------------------
+
+local secondaryClassColumnChecked = nil
+
+-- The column is created by mod-multiclass' module SQL. Probe it once so a server
+-- running without the module never logs a failed query.
+local function HasSecondaryClassColumn()
+    if secondaryClassColumnChecked == nil then
+        local q = CharDBQuery("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() " ..
+                              "AND TABLE_NAME = 'characters' AND COLUMN_NAME = 'secondary_class'")
+        secondaryClassColumnChecked = (q and q:GetUInt32(0) > 0) or false
+    end
+    return secondaryClassColumnChecked
+end
+
+--- Exposed so other SpellDraft files can share the one-time column probe.
+CONFIG.HasSecondaryClassColumn = HasSecondaryClassColumn
+
+-- The character's secondary class id, or 0 when they have none (or the module is absent).
+function CONFIG.GetSecondaryClassId(player)
+    if not player or not HasSecondaryClassColumn() then return 0 end
+    local q = CharDBQuery("SELECT secondary_class FROM characters WHERE guid = " .. player:GetGUIDLow())
+    return (q and q:GetUInt32(0)) or 0
+end
+
+-- The classes a character may use class-restricted content from: the primary
+-- class, plus the secondary class when one is set. Returned as a lookup table
+-- (classId -> true) so callers can test membership directly.
+function CONFIG.GetPlayerClassSet(player)
+    local classes = { [player:GetClass()] = true }
+    local secondary = CONFIG.GetSecondaryClassId(player)
+    if secondary and secondary > 0 then
+        classes[secondary] = true
+    end
+    return classes
+end
+
  

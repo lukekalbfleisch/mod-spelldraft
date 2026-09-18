@@ -389,16 +389,18 @@ local function OnLevelUp(event, player, oldLevel)
         player:SendAreaTriggerMessage(fullMessage)
     end
 
-    -- Custom Talent Points progression
-    if IsPlayerInDraft(player) then
-        local diff = newLevel - oldLevel
-        if diff > 0 then
-            local guid = player:GetGUIDLow()
-            -- Synchronous write so the SyncTalentPoints read below can't race it
-            CharDBQuery("UPDATE prestige_stats SET talent_points = talent_points + " .. diff .. " WHERE player_id = " .. guid)
-            if type(SyncDraftStats) == "function" then
-                SyncDraftStats(player)
-            end
+    -- Custom Talent Points progression: one point per level in every mode. Draft
+    -- mode has always granted these; outside draft mode this is what funds the
+    -- character's own two class trees. Starting a draft rewrites talent_points, so
+    -- points accrued before entering draft do not distort the draft economy.
+    local diff = newLevel - oldLevel
+    if diff > 0 then
+        local guid = player:GetGUIDLow()
+        -- Synchronous write so the SyncTalentPoints read below can't race it
+        CharDBQuery("UPDATE prestige_stats SET talent_points = talent_points + " .. diff ..
+                    " WHERE player_id = " .. guid)
+        if type(SyncDraftStats) == "function" then
+            SyncDraftStats(player)
         end
     end
 end

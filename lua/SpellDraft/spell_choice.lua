@@ -185,18 +185,23 @@ local LOCKED_TALENTS = {
 
 local function LoadTalentChains()
     local query = WorldDBQuery([[
-        SELECT ID, TierID, SpellRank_1, SpellRank_2, SpellRank_3, SpellRank_4,
+        SELECT ID, TabID, TierID, SpellRank_1, SpellRank_2, SpellRank_3, SpellRank_4,
                SpellRank_5, SpellRank_6, SpellRank_7, SpellRank_8, SpellRank_9,
                PrereqTalent_1, PrereqRank_1, PrereqTalent_2, PrereqRank_2, PrereqTalent_3, PrereqRank_3
           FROM talent_dbc
     ]])
     if not query then return end
     local count = 0
+    local unmappedTabs = {}
     repeat
         local talentId = query:GetInt32(0)
-        local tierId = query:GetInt32(1)
+        local tabId = query:GetInt32(1)
+        local tierId = query:GetInt32(2)
+        -- TabID -> owning class, so normal (non-draft) play can restrict the
+        -- Grimoire to a character's own two classes. See CONFIG.TALENT_TAB_CLASS.
+        local classId = CONFIG.TALENT_TAB_CLASS[tabId]
         local ranks = {}
-        for i = 2, 10 do
+        for i = 3, 11 do
             local spellId = query:GetInt32(i)
             if spellId > 0 then
                 table.insert(ranks, spellId)
@@ -205,8 +210,11 @@ local function LoadTalentChains()
         
         if #ranks > 0 then
             count = count + 1
+            if not classId then
+                unmappedTabs[tabId] = true
+            end
             local prereqs = {}
-            for k = 11, 15, 2 do
+            for k = 12, 16, 2 do
                 local pTalent = query:GetInt32(k)
                 local pRank = query:GetInt32(k+1)
                 if pTalent > 0 then
@@ -214,12 +222,17 @@ local function LoadTalentChains()
                 end
             end
             
-            local chain = { talentId = talentId, tierId = tierId, ranks = ranks, prereqs = prereqs }
+            local chain = {
+                talentId = talentId, tabId = tabId, classId = classId,
+                tierId = tierId, ranks = ranks, prereqs = prereqs
+            }
             talentIdToChain[talentId] = chain
             
             for rankIndex, spellId in ipairs(ranks) do
                 talentChains[spellId] = {
                     talentId = talentId,
+                    tabId = tabId,
+                    classId = classId,
                     tierId = tierId,
                     rankIndex = rankIndex,
                     ranks = ranks,
@@ -229,8 +242,45 @@ local function LoadTalentChains()
         end
     until not query:NextRow()
 
+    local unmapped = {}
+    for unmappedTabId in pairs(unmappedTabs) do
+        table.insert(unmapped, unmappedTabId)
+    end
+    if #unmapped > 0 then
+        table.sort(unmapped)
+        print("[SpellChoice] WARNING: CONFIG.TALENT_TAB_CLASS has no class for TabID(s) " ..
+              table.concat(unmapped, ", ") .. "; those talent chains are hidden outside draft mode.")
+    end
+
     print("[SpellChoice] Loaded " .. tostring(count) .. " talent chains from talent_dbc.")
 end
+
+-- Draft-state check (each Eluna file is its own chunk; core's helper is file-local).
+-- Defined here rather than next to HandleBuyTalent because the Tome-of-Talents pool
+-- below needs it too.
+local function IsPlayerInDraft(player)
+    local query = CharDBQuery("SELECT draft_state FROM prestige_stats WHERE player_id = " .. player:GetGUIDLow())
+    return (query and query:GetUInt32(0) == 1) or false
+end
+
+-- Whether a talent chain may be shown/bought by this player. Draft mode keeps the
+-- classless Grimoire (any talent, as before). Outside draft mode a character is
+-- restricted to its own trees: the primary class plus the secondary class, which
+-- mod-multiclass stores in characters.secondary_class. The owning class of a chain
+-- comes from CONFIG.TALENT_TAB_CLASS via talent_dbc.TabID.
+local function IsTalentAllowedForPlayer(player, chain)
+    if IsPlayerInDraft(player) then
+        return true
+    end
+
+    if not chain or not chain.classId then
+        return false
+    end
+
+    local classes = CONFIG.GetPlayerClassSet(player)
+    return classes[chain.classId] == true
+end
+
 
 local function GetEligibleTalentsPool(player, level)
     local guid = player:GetGUIDLow()
@@ -281,7 +331,7 @@ local function GetEligibleTalentsPool(player, level)
     local pool = {}
     for spellId, _ in pairs(nextRankSpells) do
         local info = talentChains[spellId]
-        if info and LOCKED_TALENTS[info.ranks[1]] then
+        if info and LOCKED_TALENTS[info.ranks[1]] and IsTalentAllowedForPlayer(player, info) then
             if not blacklistedSpellIds[spellId] and not knownSpells[spellId] then
                 table.insert(pool, spellId)
             end
@@ -2014,12 +2064,6 @@ local function GetSpellNameSafe(spellId)
     return "Spell " .. tostring(spellId)
 end
 
--- Draft-state check (each Eluna file is its own chunk; core's helper is file-local)
-local function IsPlayerInDraft(player)
-    local query = CharDBQuery("SELECT draft_state FROM prestige_stats WHERE player_id = " .. player:GetGUIDLow())
-    return (query and query:GetUInt32(0) == 1) or false
-end
-
 local function MeetsPrerequisites(player, chain)
     -- 1. Check Level requirement based on Shifted Tier Gating (A.1)
     local level = player:GetLevel()
@@ -2054,10 +2098,8 @@ end
 -- Global: referenced by OnAddonWhisper, which is compiled earlier in this file
 function HandleBuyTalent(player, spellId)
     local guid = player:GetGUIDLow()
-    if not IsPlayerInDraft(player) then
-        player:SendBroadcastMessage("You are not in Draft Mode.")
-        return
-    end
+    -- Both modes spend the custom talent points: draft mode freely, normal play
+    -- inside the character's own trees (enforced by IsTalentAllowedForPlayer below).
     if player:IsInCombat() then
         player:SendBroadcastMessage("You cannot purchase talents in combat.")
         return
@@ -2075,6 +2117,12 @@ function HandleBuyTalent(player, spellId)
     local chainInfo = talentChains[spellId]
     if not chainInfo then
         player:SendBroadcastMessage("Invalid talent spell.")
+        return
+    end
+
+    -- 2b. Outside draft mode a character may only buy its own class trees
+    if not IsTalentAllowedForPlayer(player, chainInfo) then
+        player:SendBroadcastMessage("|cffff0000That talent tree belongs to a class you do not have.|r")
         return
     end
     
@@ -2262,6 +2310,14 @@ function SyncDraftStats(player)
         player:SendAddonMessage("SpellChoiceBansLeft", tostring(bans), 0, player)
         player:SendAddonMessage("SpellChoiceDrafts", tostring(totalDrafts), 0, player)
         player:SendAddonMessage("SpellChoiceTalentPoints", tostring(points), 0, player)
+        -- Which classes' talent trees the Grimoire should present. Draft mode stays
+        -- classless, so the client only acts on this outside draft mode.
+        local classList = {}
+        for classId, _ in pairs(CONFIG.GetPlayerClassSet(player)) do
+            table.insert(classList, tostring(classId))
+        end
+        table.sort(classList)
+        player:SendAddonMessage("SpellChoiceTalentClasses", table.concat(classList, ","), 0, player)
         player:SendAddonMessage("SpellChoicePrestigeTokens", tostring(tokens), 0, player)
         player:SendAddonMessage("SpellChoicePrestigeLevel", tostring(prestigeLevel), 0, player)
     else

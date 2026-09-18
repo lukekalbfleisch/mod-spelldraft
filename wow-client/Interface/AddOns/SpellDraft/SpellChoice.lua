@@ -1,5 +1,11 @@
 SpellDraft = SpellDraft or {}
 
+-- Classes ids (as sent by the server) -> the class names used by the talent UI.
+local CLASS_ID_TO_NAME = {
+  [1] = "WARRIOR", [2] = "PALADIN", [3] = "HUNTER", [4] = "ROGUE", [5] = "PRIEST",
+  [6] = "DEATHKNIGHT", [7] = "SHAMAN", [8] = "MAGE", [9] = "WARLOCK", [11] = "DRUID"
+}
+
 -- Shared single timer frame implementation for Delay/After
 local timerFrame = CreateFrame("Frame")
 local timerQueue = {}
@@ -648,6 +654,20 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
       SpellDraft.TalentPoints = points
       if SpellDraft.UpdateStatsDisplay then
         SpellDraft.UpdateStatsDisplay()
+      end
+
+    elseif prefix == "SpellChoiceTalentClasses" then
+      -- Class ids (csv) whose talent trees this character may use. Outside draft
+      -- mode the Grimoire only presents these: the primary class plus the
+      -- secondary class from mod-multiclass.
+      local classSet = {}
+      for idStr in string.gmatch(message, "[^,]+") do
+        local className = CLASS_ID_TO_NAME[tonumber(idStr)]
+        if className then classSet[className] = true end
+      end
+      SpellDraft.TalentClasses = classSet
+      if SpellDraft.RefreshTalentsList then
+        SpellDraft.RefreshTalentsList()
       end
 
     elseif prefix == "SpellChoicePrestigeTokens" then
