@@ -96,7 +96,19 @@ CONVERTIBLE = {
     16: (199, 199),
     14: (73, 72),     # flat -> MOD_POWER_COST_SCHOOL, pct -> ..._PCT
     28: (235, 235),   # RESIST_DISPEL_CHANCE -> MOD_DISPEL_RESIST (schoolless)
+    2:  (None, 10),   # THREAT: pct -> MOD_THREAT; flat has no equivalent (below)
 }
+
+# THREAT is the one op whose two forms are not interchangeable. A *pct* mod is
+# consumed as `threat * (1 + value/100)` in `ApplySpellMod`, and `MOD_THREAT` is
+# consumed as `threat * (100 + amount)/100` by `CalculateModifiedThreat` via
+# `GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_THREAT, school)`, so the amount
+# transfers 1:1 - and Blizzard's own talent proves it: Silent Resolve carries the
+# same -7 as both `aura=10 misc=66 amount=-7` and `aura=108 misc=2 amount=-7`, and
+# Burning Soul's `misc=4 (Fire) amount=-10` matches its tooltip's "10%". A *flat*
+# mod is divided by 100 in `ApplySpellMod` ("in packets we send threat * 100"), so
+# it is centi-threat units - a flat threat amount with no percentage aura that can
+# stand in for it, hence None above and a reported skip rather than a guess.
 LEVER1 = {0, 2, 7, 14, 15, 16, 22, 28}
 
 # Ops whose replacement aura ignores EffectMiscValue, so it carries misc 0 rather
@@ -128,7 +140,8 @@ SPEC_SCHOOLS = {
     "feral": 1,
     "guardian": 1,
     "restoration": 0,        # healing - no school, handled as heal intent
-    "discipline": 2,
+    "discipline": 2 | 64,    # Holy + Arcane: what Silent Resolve's own aura uses
+                             # (misc 66) for "your Holy and Discipline spells"
     "holy": 2,
     "shadow": 32,
     "arcane": 64,
@@ -421,8 +434,8 @@ def render_sql(conversions, spells, columns, dbc_path):
     add("--")
     add("-- Schools come from Blizzard's own wording (the spells named in each tooltip, else a")
     add("-- school named in it); the classmask cannot supply them - see the tool's docstring.")
-    add("-- Chains whose tooltip names no spell or school are NOT converted, and")
-    add("-- python3 tools/school_scope_tier1.py --report lists them as review items.")
+    add("-- Chains whose tooltip names no spell or school fall back to every school, which")
+    add("-- keeps them broad (the policy); the report lists them with that reason.")
     add("--")
     add(f"-- {len(ids)} spells. Read from Spell.dbc: {dbc_path}")
     add("-- To revert: delete these ids from spell_dbc (the DELETE below lists them).")

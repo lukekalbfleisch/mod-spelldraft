@@ -73,6 +73,7 @@ AURA_PHRASES = {
     71: lambda amt, misc: f"{amt:+d}% crit chance for {school_phrase(misc)}",
     163: lambda amt, misc: f"{amt:+d}% crit damage for {school_phrase(misc)}",
     199: lambda amt, misc: f"{amt:+d}% hit for {school_phrase(misc)}",
+    10: lambda amt, misc: f"{amt:+d}% threat for {school_phrase(misc)}",
     136: lambda amt, misc: f"{amt:+d}% healing from any spell",
     235: lambda amt, misc: f"{amt:+d}% dispel resistance (any spell)",
 }
