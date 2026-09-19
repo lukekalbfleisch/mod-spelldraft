@@ -333,6 +333,7 @@ SPELLMOD_LEVERS = {
     16: ("1", "SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT"),
     14: ("1", "SPELL_AURA_MOD_POWER_COST_SCHOOL_PCT"),
     2:  ("1", "SPELL_AURA_MOD_THREAT"),
+    28: ("1", "SPELL_AURA_MOD_DISPEL_RESIST"),
     10: ("2", None), 11: ("2", None), 1: ("2", None), 5: ("2", None),
     6: ("2", None), 4: ("2", None), 21: ("2", None), 9: ("2", None),
     17: ("2", None), 19: ("2", None), 26: ("2", None), 30: ("2", None),

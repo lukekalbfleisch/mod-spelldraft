@@ -95,8 +95,17 @@ CONVERTIBLE = {
     15: (None, 163),
     16: (199, 199),
     14: (73, 72),     # flat -> MOD_POWER_COST_SCHOOL, pct -> ..._PCT
+    28: (235, 235),   # RESIST_DISPEL_CHANCE -> MOD_DISPEL_RESIST (schoolless)
 }
-LEVER1 = {0, 2, 7, 14, 15, 16, 22}
+LEVER1 = {0, 2, 7, 14, 15, 16, 22, 28}
+
+# Ops whose replacement aura ignores EffectMiscValue, so it carries misc 0 rather
+# than a school: MOD_HEALING_DONE_PERCENT (136) and MOD_DISPEL_RESIST (235). Both are
+# consumed as a flat percentage with no school parameter
+# (`GetTotalAuraMultiplier(SPELL_AURA_MOD_HEALING_DONE_PERCENT)` and
+# `GetTotalAuraModifier(SPELL_AURA_MOD_DISPEL_RESIST)`), and both add to the same
+# magnitude the spellmod added, so the amount transfers 1:1.
+UNIVERSAL_AURAS = frozenset({136, 235})
 
 SCHOOL_NAMES = {1: "Physical", 2: "Holy", 4: "Fire", 8: "Nature",
                 16: "Frost", 32: "Shadow", 64: "Arcane"}
@@ -271,7 +280,8 @@ def convert_effects(result, spells, school_mask, intent):
                 replacement = pct if aura == ADD_PCT_MODIFIER else flat
                 if replacement is None:
                     return None, f"no lever for {SPELLMOD_OP_NAMES.get(op, op)} (aura {aura})"
-                replacements = [(replacement, school_mask, amount)]
+                misc = 0 if replacement in UNIVERSAL_AURAS else school_mask
+                replacements = [(replacement, misc, amount)]
             for entry in replacements:
                 outputs.append(entry)
                 origin.append(slot)
@@ -512,6 +522,13 @@ def main():
         if not mask and intent[1] and not intent[0]:
             mask = UNIVERSAL_MASK
             reason = "schoolless healing (MOD_HEALING_DONE_PERCENT ignores misc)"
+        # Some tooltips name neither a spell nor a school ("reduces the chance your
+        # helpful spells are dispelled", "increases your chance to hit with spells").
+        # Falling back to every school keeps the talent broad, which is the policy;
+        # for ops whose aura ignores misc (healing, dispel resist) it is unused anyway.
+        elif not mask:
+            mask = UNIVERSAL_MASK
+            reason = "tooltip names no school or scope - universal"
         intent_name = "both" if all(intent) else ("damage" if intent[0] else
                                                   ("heal" if intent[1] else "unspecified"))
         if not mask:
