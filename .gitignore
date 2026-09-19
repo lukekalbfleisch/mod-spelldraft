@@ -2,6 +2,14 @@
 docs/
 client_assets/
 
+# Cache of the server's Spell.dbc, copied out of the worldserver on demand by
+# tools/classify_talent_synergy.py's resolve_dbc (pass --dbc to avoid it).
+tools/Spell.dbc
+
+# Python bytecode (the tools import each other, so running one caches several).
+__pycache__/
+*.pyc
+
 tools/account-portal/config.yml
 
 tools/account-portal/cert.pem

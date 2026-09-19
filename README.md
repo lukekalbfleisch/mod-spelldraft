@@ -165,6 +165,15 @@ magnitudes transfer 1:1 because both sides use the same units. `THREAT` is **exc
 its aura is consumed as a multiplier while the spellmod is additive, so the magnitude
 needs a conversion that has not been verified.
 
+A slot that collapses onto the same (aura, school) pair keeps the **strongest** amount, not
+the sum. Blizzard writes one bonus as several channel-specific mods — `Fire Power` is
+`DAMAGE 2%` *and* `DOT 2%`, `Darkness` is `DAMAGE [2,2]` plus `DOT [2]` — which are
+parallel channels of a single "+2%", so summing them would have made those talents two to
+three times too strong (`Darkness` at 6% instead of 2%). Merging is still required, because
+the engine *multiplies* matching auras, so two copies would double-dip. An intent that
+needs a second aura (a "damage *and* healing" talent) takes a free effect slot, and the
+chain is reported instead if the spell has none left.
+
 The **school** cannot come from the data — expanding a classmask yields a median of 19
 spells whose schools union to five or six different ones, and the talent's own
 `SchoolMask` is `Physical` for all but five. So it is derived from Blizzard's own wording,
@@ -203,6 +212,13 @@ Deliberately **not** broadened:
 remains — after both batches that is 3 `THREAT`-only talents, 48 single-spell ones and 111
 effect-slot ones — and `--apply-spell-dbc` makes either report reflect what the server
 actually loads. Both generators have a `--check` mode that verifies their SQL is applied.
+
+To see what actually changed, rather than read a 200-column diff:
+`python3 tools/report_talent_changes.py` writes `docs/TALENT_CHANGES.md` (local, like the
+other reports) with a per-class summary and one plain-language line per talent —
+"`DAMAGE mod +10 (pct)` → `+10% damage for Physical spells`". It reads both sides from the
+running stack and self-checks that every other column of every override is identical to
+`Spell.dbc`, so a generator bug that moved an unrelated field cannot pass unnoticed.
 
 **Known debt:** the 56 affected tooltips still name a class. Rewording them needs the
 client `Spell.dbc` (a `patch-P.mpq` rebuild), so it is queued with the client patch — the

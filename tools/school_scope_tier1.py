@@ -247,11 +247,11 @@ def convert_effects(result, spells, school_mask, intent):
                                       chance and cost all apply to heals as well as
                                       damage, so they need no intent split)
 
-    Slots that collapse onto the same (aura, misc) pair are merged with their
-    amounts summed, because the engine *multiplies* matching auras, so two copies
-    would double-dip rather than add. An intent that needs a second aura takes a
-    free effect slot (Effect_N == 0), and the chain is reported if the spell has
-    none left.
+    Slots that collapse onto the same (aura, misc) pair are merged with the strongest
+    amount kept, because the engine *multiplies* matching auras (two copies would
+    double-dip) and because Blizzard's several channel-specific mods represent one
+    bonus rather than several. An intent that needs a second aura takes a free effect
+    slot (Effect_N == 0), and the chain is reported if the spell has none left.
     """
     damage_intent, heal_intent = intent
     out = {}
@@ -289,13 +289,19 @@ def convert_effects(result, spells, school_mask, intent):
         if not outputs:
             continue
 
-        # merge identical (aura, misc) pairs, keeping first-seen order
+        # merge identical (aura, misc) pairs, keeping first-seen order. The amount is
+        # the MAXIMUM, not the sum: Blizzard writes one bonus as several
+        # channel-specific mods - Fire Power is DAMAGE 2% *and* DOT 2%, Darkness is
+        # DAMAGE [2,2] plus DOT [2] - which are parallel channels of a single "+2%",
+        # not contributions to add. Summing them would have multiplied the talent
+        # (Darkness would have gone 2% -> 6%), so the strongest channel is kept and
+        # the rest are folded into it.
         merged = {}
         for entry, slot in zip(outputs, origin):
             key = (entry[0], entry[1])
             if key in merged:
                 merged[key] = (merged[key][0], merged[key][1],
-                               merged[key][2] + entry[2], merged[key][3])
+                               max(merged[key][2], entry[2]), merged[key][3])
             else:
                 merged[key] = (entry[0], entry[1], entry[2], slot)
 
@@ -362,7 +368,11 @@ def render_sql(conversions, spells, columns, dbc_path):
     add("-- Each rewritten slot keeps Effect_N (APPLY_AURA) and gets the new aura, the school")
     add("-- in EffectMiscValue_N and the same magnitude (the DBC's value-1 convention is")
     add("-- reapplied). Slots that merge onto one (aura, school) pair are blanked, because")
-    add("-- the engine multiplies matching auras. SpellClassSet and the classmask stay in")
+    add("-- the engine multiplies matching auras, so two copies would double-dip. A merged")
+    add("-- slot keeps the STRONGEST amount, not the sum: one bonus is often written as")
+    add("-- several channel-specific mods (Fire Power is DAMAGE 2% and DOT 2%), which are")
+    add("-- parallel channels of that single bonus rather than parts to add together.")
+    add("-- SpellClassSet and the classmask stay in")
     add("-- place: none of these auras consult them, and they document the original scope.")
     add("--")
     add("-- Schools come from Blizzard's own wording (the spells named in each tooltip, else a")
