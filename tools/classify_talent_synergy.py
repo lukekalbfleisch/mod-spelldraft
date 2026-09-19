@@ -474,13 +474,18 @@ def analyze_breakdown(results, index):
             continue
         scoped = [e for e in result["effects"] if e["verdict"] == "spellmod-class-scoped"]
         ops = sorted({e["misc"] for e in scoped})
-        tiers = {SPELLMOD_LEVERS.get(op, ("3", None))[0] for op in ops}
+        op_tiers = {SPELLMOD_LEVERS.get(op, ("3", None))[0] for op in ops}
         healed = False
         damaged = False
         touched = 0
+        width = 0
         for effect in scoped:
             affected = expand_mask(index, effect["family"], effect["mask"])
             touched = max(touched, len(affected))
+            # How many classmask bits the effect keys on: one bit is a single spell
+            # (or a spell and its ranks), more is a class-wide grouping.
+            width = max(width, sum(bin(word & 0xFFFFFFFF).count("1")
+                                   for word in effect["mask"]))
             for entry in affected:
                 for i in everything:
                     healed = healed or entry[4 + i] in HEAL_EFFECTS or entry[7 + i] in HEAL_AURAS
@@ -493,8 +498,11 @@ def analyze_breakdown(results, index):
             "name": result["name"],
             "talentId": result["talentId"],
             "ops": ops,
-            "tier": max(tiers),
-            "mixed": len(tiers) > 1,
+            "tier": max(op_tiers),
+            "mixed": len(op_tiers) > 1,
+            "all_levered": all(SPELLMOD_LEVERS.get(op, ("3", None))[0] == "1" for op in ops),
+            "levered": any(SPELLMOD_LEVERS.get(op, ("3", None))[0] == "1" for op in ops),
+            "width": width,
             "healed": healed,
             "side": side,
             "touched": touched,
@@ -629,6 +637,63 @@ def render_breakdown(rows, overrides=0):
         for name, count in ops.most_common():
             add(f"| `SPELLMOD_{name}` | {count} |")
         add("")
+
+    add("## What is actually left, once the policies are applied")
+    add("")
+    # A chain is already handled by one of the two generators unless it is still
+    # untouched: every op has a lever (Tier 1 rule) or it is a Tier 2 chain with a
+    # multi-bit mask (Tier 2 rule).
+    untouched = [r for r in rows
+                 if not r["all_levered"] and not (r["tier"] == "2" and r["width"] > 1)]
+    wide3 = [r for r in untouched if r["tier"] == "3" and r["width"] > 1]
+    blocked = [r for r in untouched if r["levered"] and max(r["width"], 1) <= 1]
+    spell_only = [r for r in untouched if r not in wide3 and r not in blocked]
+    add("| bucket | chains | disposition |")
+    add("|---|---:|---|")
+    add(f"| class-wide Tier 3 (multi-bit mask) | {len(wide3)} | **re-author**: no lever for a "
+        "magnitude op, and the only class-scoped set left |")
+    add(f"| spell-scoped, one op has a lever | {len(blocked)} | **leave**: the policy allows a "
+        "spell scope (\"your fireball does more damage\") |")
+    add(f"| spell-scoped, no lever at all | {len(spell_only)} | **leave**: already what their "
+        "tooltips say |")
+    add("")
+    add("### Class-wide Tier 3 - the only class-scoped chains left")
+    add("")
+    add("A multi-bit mask groups spells by class theme, so these are the chains that are")
+    add("still family-scoped. Their blocking op has no school lever, and dropping the")
+    add("family is **not** the answer here the way it was for Tier 2: these ops scale an")
+    add("effect's *value* (`Unit::ApplyEffectModifiers` applies `ALL_EFFECTS`/`EFFECT1-3` to")
+    add("it, `BONUS_MULTIPLIER` to a spellpower coefficient), so making one universal is a")
+    add("blanket power increase rather than a widened quality-of-life scope. Each needs a")
+    add("replacement effect chosen by hand.")
+    add("")
+    add("| class | talent | blocking op | ops |")
+    add("|---|---|---|---|")
+    for row in sorted(wide3, key=lambda r: (r["className"], r["name"])):
+        blocking = sorted({SPELLMOD_OP_NAMES.get(op, op) for op in row["ops"]
+                           if SPELLMOD_LEVERS.get(op, ("3", None))[0] != "1"})
+        every = sorted({SPELLMOD_OP_NAMES.get(op, op) for op in row["ops"]})
+        add(f"| {row['className']} | {row['name']} | {', '.join(blocking)} | "
+            f"{', '.join(every)} |")
+    add("")
+    add("### Spell-scoped chains with a lever on one op")
+    add("")
+    add("Converting the levered op would turn a specific ability's bonus into a")
+    add("school-wide one (\"Revenge +30%\" becomes \"+30% damage to every Physical spell\"),")
+    add("which is what the Tier 2 policy refused for single-spell talents - `Soul Warding`'s")
+    add("-4s Power Word: Shield cooldown must not become -4s on every cooldown. The policy")
+    add("permits these as they are (\"your fireball does more damage\" is one of its own")
+    add("examples), so they stay; the bound is that their masks are single-bit.")
+    add("")
+    add("| class | talent | levered op | op without a lever |")
+    add("|---|---|---|---|")
+    for row in sorted(blocked, key=lambda r: (r["className"], r["name"])):
+        levered = sorted({SPELLMOD_OP_NAMES.get(op, op) for op in row["ops"]
+                          if SPELLMOD_LEVERS.get(op, ("3", None))[0] == "1"})
+        rest = sorted({SPELLMOD_OP_NAMES.get(op, op) for op in row["ops"]
+                       if SPELLMOD_LEVERS.get(op, ("3", None))[0] != "1"})
+        add(f"| {row['className']} | {row['name']} | {', '.join(levered)} | {', '.join(rest)} |")
+    add("")
 
     add("## Why the school cannot be picked mechanically")
     add("")
