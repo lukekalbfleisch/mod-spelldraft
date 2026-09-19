@@ -11,8 +11,13 @@
 --   RESIST_MISS_CHANCE     -> 199 MOD_INCREASES_SPELL_PCT_TO_HIT (school mask)
 --   COST flat              -> 73  MOD_POWER_COST_SCHOOL        (school mask)
 --   COST pct               -> 72  MOD_POWER_COST_SCHOOL_PCT    (school mask)
--- THREAT is excluded: its aura is consumed as a multiplier while the spellmod is
--- additive, so the magnitude needs a conversion that has not been verified.
+--   THREAT pct             -> 10  MOD_THREAT                   (school mask)
+-- THREAT transfers 1:1 in its pct form only: the spellmod is
+-- threat * (1 + value/100) in ApplySpellMod and the aura is
+-- threat * (100 + amount)/100 via GetTotalAuraMultiplierByMiscMask, so both are
+-- percentages - Silent Resolve carries the same -7 as both. The flat form is
+-- centi-threat (ApplySpellMod divides it by 100) and has no percentage aura,
+-- so it is reported as a skip instead of guessed; no converted chain uses it.
 --
 -- Each rewritten slot keeps Effect_N (APPLY_AURA) and gets the new aura, the school
 -- in EffectMiscValue_N and the same magnitude (the DBC's value-1 convention is

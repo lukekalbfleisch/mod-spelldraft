@@ -75,6 +75,46 @@ SF_MANAPCT, SF_FAMILY, SF_FAMILYFLAGS = 204, 208, 209
 SF_MAXTARGETS, SF_DMGCLASS, SF_PREVENTION, SF_SCHOOL = 212, 213, 214, 225
 
 
+# --- talent tooltip rewords (tools/talent_tooltip_overrides.json) -------------
+TOOLTIP_OVERRIDES_PATH = MODULE / 'tools/talent_tooltip_overrides.json'
+
+
+def apply_tooltip_overrides(spells, path=TOOLTIP_OVERRIDES_PATH):
+    """
+    Reword the converted talents' tooltips, in place, from the reworder's manifest.
+
+    Phase 1d gave 194 talents a school scope (Tier 1) or no scope (Tier 2), but the
+    text the client shows still names the abilities, spec or class they used to be
+    limited to, so it understates them. Only `Description` (170) is touched: that is
+    the field the client builds the spell/talent tooltip from (`ToolTip`, 187, is the
+    aura text and is empty on these talents).
+
+    The current string is compared against the manifest's `old` first. A repack's
+    Spell.dbc carries different wording, and silently overwriting it would replace
+    hand-written repack text with ours, so mismatches are counted and reported rather
+    than hidden.
+
+    Returns (applied, mismatched).
+    """
+    if not path.exists():
+        return 0, 0
+    entries = json.loads(path.read_text(encoding='utf-8'))['spells']
+    applied = mismatched = 0
+    for key in sorted(entries, key=int):
+        entry = entries[key]
+        new = entry.get('new')
+        if not new or new == entry.get('old'):
+            continue
+        record_id = int(key)
+        row = spells.get_record(record_id)
+        if spells.text(row[SPELL_DESC_FIELD]) != entry['old']:
+            mismatched += 1
+        row[SPELL_DESC_FIELD] = spells.add_string(new)
+        spells.set_record(record_id, row)
+        applied += 1
+    return applied, mismatched
+
+
 def build_eq_spell_row(spells, base, spec):
     """Clone the neutral base row and apply this spell's explicit overrides."""
     row = list(base)
@@ -562,6 +602,19 @@ class Dbc:
                 return list(struct.unpack_from(f'<{self.fields}i', self.records, i * self.recsize))
         raise KeyError(rec_id)
 
+    def set_record(self, rec_id, values):
+        assert len(values) == self.fields
+        for i in range(self.recs):
+            if struct.unpack_from('<I', self.records, i * self.recsize)[0] == rec_id:
+                struct.pack_into(f'<{self.fields}i', self.records, i * self.recsize, *values)
+                return
+        raise KeyError(rec_id)
+
+    def text(self, offset):
+        if offset <= 0:
+            return ''
+        return self.strings[offset:self.strings.index(0, offset)].decode('utf-8', 'replace')
+
     def add_string(self, text):
         offset = len(self.strings)
         self.strings += text.encode('utf-8') + b'\x00'
@@ -804,6 +857,26 @@ def main():
             spells.add_record(row)
         print(f"added {len(rows)} EQ talent pack spells to Spell.dbc "
               f"({len(eq_talent_pack['talents'])} talents)")
+
+    # Talent tooltips: the last Phase 1d artifact. Applied here, after every other
+    # Spell.dbc edit, so the descriptions land in both the client archive and the
+    # server copy this build writes.
+    applied, mismatched = apply_tooltip_overrides(spells)
+    if applied:
+        print(f"reworded {applied} talent tooltip description(s) from "
+              f"{TOOLTIP_OVERRIDES_PATH.name}")
+        if mismatched:
+            print(f"WARNING: {mismatched} of them did not match the text in this "
+                  f"Spell.dbc.\n"
+                  f"         This archive was built against a different/repack "
+                  f"Spell.dbc, so\n"
+                  f"         those tooltips were replaced with the manifest's text; "
+                  f"re-run\n"
+                  f"         tools/reword_talent_tooltips.py against this Spell.dbc "
+                  f"to re-derive them.")
+    else:
+        print("WARNING: no talent tooltip overrides applied — "
+              f"{TOOLTIP_OVERRIDES_PATH.name} is missing or empty")
 
     manifest = json.loads((MODULE / 'tools/client_patch_manifest.json').read_text())
 

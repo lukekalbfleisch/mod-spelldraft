@@ -247,13 +247,40 @@ other reports) with a per-class summary and one plain-language line per talent �
 running stack and self-checks that every other column of every override is identical to
 `Spell.dbc`, so a generator bug that moved an unrelated field cannot pass unnoticed.
 
-**Known debt:** the tooltips still describe the original scopes. The Tier 2 batch's 56
-affected tooltips name a class ("your Arcane spells"), and the Tier 1 batch adds tooltips
-that name a spec or a specific ability ("your Destruction spells", "your Bloodthirst and
-Mortal Strike abilities") which are now school-scoped — so those two read narrower than
-they behave. Rewording them needs the client `Spell.dbc` (a `patch-P.mpq` rebuild), so it is
-queued with the client patch — the generated SQL lists every affected talent as that
-batch's todo.
+**Tooltips** are reworded from the same analysis: `tools/reword_talent_tooltips.py` writes
+`tools/talent_tooltip_overrides.json`, and `tools/build_client_patch.py` applies it to the
+client `Spell.dbc` (field `Description`, 170 — the one the spell/talent tooltip is built
+from; `ToolTip`, 187, is the aura text and is empty here). It has three outcomes per
+tooltip, because the text is hand-written prose and a mechanical rewrite cannot be trusted
+on every sentence:
+
+| outcome | spells | what it does |
+|---|---:|---|
+| `rewrite` | 217 | one unambiguous scope span replaced in place — "your Fireball, Frostfire Bolt and Scorch spells" → "your Fire and Frost spells" |
+| `append` | 222 | sentence kept (it stays true — the spells it names are in the new scope) plus one colour-coded line naming the scope it now has |
+| `ok` | 151 | already names the new scope (Shadow Affinity says "your Shadow spells") — untouched |
+
+A rewrite is refused, and the append used instead, whenever the span is not the whole scope
+phrase: a list that continues past the span, a name that is the suffix of a longer name
+("Unstable Affliction" vs "Affliction"), a span containing a `$` token, or a tooltip whose
+`$` tokens would change. That last guard matters — the numbers in a tooltip live in those
+tokens, so a reword that dropped one would silently delete a value. The reworder has a
+`--check` mode, and `docs/TALENT_TOOLTIPS.md` (local) lists every old → new pair for review;
+setting `"manual": true` on an entry keeps a hand-written line through regeneration.
+
+Rebuilding the archive needs the DBCs your client actually uses, so it is a two-step:
+
+```bash
+python3 tools/extract_client_dbcs.py "/path/to/wow 3.3.5a client" /tmp/native_dbcs
+python3 tools/build_client_patch.py --dbc-src /tmp/native_dbcs
+```
+
+Do **not** build from the server's `data/dbc` or from this repo's `dbc/`: those are this
+module's *patched* output (they already carry the EQ pack spells), so building from them
+would double-apply the patch and would not see a repack's own Spell.dbc. The build prints
+the number of rewords it applied and warns if they did not match the text in the DBC it was
+given — that means it was pointed at a different (repack) file and the tooltips in it were
+replaced with ours.
 
 ---
 

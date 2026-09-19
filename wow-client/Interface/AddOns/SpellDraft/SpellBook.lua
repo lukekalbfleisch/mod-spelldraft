@@ -145,6 +145,23 @@ local function ApplyLockTexture(tex)
     end
 end
 
+-- Class-colour hex for tooltip text. 3.3.5's RAID_CLASS_COLORS entries carry both
+-- floats and a colorStr; colorStr is ARGB ("ff69ccf0"), so it is trimmed to RGB
+-- because the call sites already write the "|cff" alpha prefix.
+local function ClassColorHex(token)
+    local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[token]
+    if not color then
+        return "ffffff"
+    end
+    if color.colorStr then
+        return (#color.colorStr == 8) and color.colorStr:sub(3) or color.colorStr
+    end
+    return string.format("%02x%02x%02x",
+        math.floor((color.r or 1) * 255 + 0.5),
+        math.floor((color.g or 1) * 255 + 0.5),
+        math.floor((color.b or 1) * 255 + 0.5))
+end
+
 -- Shifted tier gating: Tier 0 unlocks at level 1, Tier N at level N*5
 local function GetTalentReqLevel(talent)
     if talent.row and talent.row > 0 then
@@ -637,6 +654,26 @@ local function GetOrCreateTalentButton(specFrame, btnIndex)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             local spellId = GetKnownSpellId(self.talent)
             GameTooltip:SetHyperlink("spell:" .. spellId)
+            -- Which tree this talent came from. Outside draft mode the Grimoire lists
+            -- two classes' trees in one list, so without this a player cannot tell
+            -- whose talent they are looking at; class and spec come from the same
+            -- generated table the tree itself is built from (SpellData_Talents.lua).
+            local entry = SpellDraftTalentDB and SpellDraftTalentDB[spellId]
+            if entry and entry.class then
+                local name = (LOCALIZED_CLASS_NAMES_MALE
+                    and LOCALIZED_CLASS_NAMES_MALE[entry.class]) or entry.class
+                local tag = ""
+                if SpellDraft.Unlocked == false then
+                    -- UnitClass returns the localised name, as does the table above.
+                    if UnitClass("player") == name then
+                        tag = " (your class)"
+                    else
+                        tag = " (second class)"
+                    end
+                end
+                GameTooltip:AddLine("|cff" .. ClassColorHex(entry.class) .. name
+                    .. (entry.spec and (" - " .. entry.spec) or "") .. tag .. "|r")
+            end
             
             local talent = self.talent
             if talent.locked then

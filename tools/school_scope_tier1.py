@@ -180,6 +180,28 @@ def dbc_string(dbc, offset):
     return dbc.strings[offset:dbc.strings.index(0, offset)].decode("utf-8", "replace")
 
 
+def named_spells(dbc, index, result, text):
+    """
+    (school mask, names) of the classmask spells whose name occurs in the text.
+
+    Shared by the school derivation and the tooltip reworder so both agree on which
+    abilities a tooltip is talking about. `text` is expected lowercased; names come
+    back lowercased.
+    """
+    scoped = [e for e in result["effects"] if e["verdict"] == "spellmod-class-scoped"]
+    mask, matched = 0, []
+    for effect in scoped:
+        for candidate in index.get(effect["family"], ()):
+            if not any(effect["mask"][j] and (candidate[j] & effect["mask"][j])
+                       for j in range(3)):
+                continue
+            name = dbc_string(dbc, candidate[INDEX_NAME]).lower()
+            if len(name) >= 5 and name in text:
+                mask |= candidate[INDEX_SCHOOL]
+                matched.append(name)
+    return mask, sorted(set(matched))
+
+
 def derive_school(dbc, index, result, spells):
     """
     (school mask, reason) for a chain, from Blizzard's own wording.
@@ -191,7 +213,6 @@ def derive_school(dbc, index, result, spells):
     """
     row = spells.get(result["ranks"][0])
     text = (dbc_string(dbc, row[SF_DESC]) if row else "").lower()
-    scoped = [e for e in result["effects"] if e["verdict"] == "spellmod-class-scoped"]
 
     # Union of the schools of every named spell - deliberate, and reported.
     # A named spell can be used with more than one school, and the two reasons are
@@ -205,18 +226,9 @@ def derive_school(dbc, index, result, spells):
     # So the union stands, which errs *wider* - the direction the broadening
     # policy wants - and `school_spread` lists these chains in the report so the
     # extra school is visible rather than silent.
-    named, matched = 0, []
-    for effect in scoped:
-        for candidate in index.get(effect["family"], ()):
-            if not any(effect["mask"][j] and (candidate[j] & effect["mask"][j])
-                       for j in range(3)):
-                continue
-            name = dbc_string(dbc, candidate[INDEX_NAME]).lower()
-            if len(name) >= 5 and name in text:
-                named |= candidate[INDEX_SCHOOL]
-                matched.append(name)
+    named, matched = named_spells(dbc, index, result, text)
     if named:
-        return named, f"tooltip names {', '.join(sorted(set(matched))[:3])}"
+        return named, f"tooltip names {', '.join(matched[:3])}"
 
     specs = 0
     spec_hit = []
@@ -419,8 +431,13 @@ def render_sql(conversions, spells, columns, dbc_path):
     add("--   RESIST_MISS_CHANCE     -> 199 MOD_INCREASES_SPELL_PCT_TO_HIT (school mask)")
     add("--   COST flat              -> 73  MOD_POWER_COST_SCHOOL        (school mask)")
     add("--   COST pct               -> 72  MOD_POWER_COST_SCHOOL_PCT    (school mask)")
-    add("-- THREAT is excluded: its aura is consumed as a multiplier while the spellmod is")
-    add("-- additive, so the magnitude needs a conversion that has not been verified.")
+    add("--   THREAT pct             -> 10  MOD_THREAT                   (school mask)")
+    add("-- THREAT transfers 1:1 in its pct form only: the spellmod is")
+    add("-- threat * (1 + value/100) in ApplySpellMod and the aura is")
+    add("-- threat * (100 + amount)/100 via GetTotalAuraMultiplierByMiscMask, so both are")
+    add("-- percentages - Silent Resolve carries the same -7 as both. The flat form is")
+    add("-- centi-threat (ApplySpellMod divides it by 100) and has no percentage aura,")
+    add("-- so it is reported as a skip instead of guessed; no converted chain uses it.")
     add("--")
     add("-- Each rewritten slot keeps Effect_N (APPLY_AURA) and gets the new aura, the school")
     add("-- in EffectMiscValue_N and the same magnitude (the DBC's value-1 convention is")
