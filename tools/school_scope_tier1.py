@@ -106,17 +106,42 @@ SCHOOL_WORDS = {"fire": 4, "flame": 4, "scorch": 4, "frost": 16, "ice": 16,
                 "holy": 2, "light": 2, "physical": 1, "swipe": 1, "maul": 1,
                 "mangle": 1, "bleed": 1, "shot": 1, "sting": 1}
 
-# "all spells", "your offensive abilities", "all combo point-generating abilities":
-# the tooltip already says the scope is everything, so there is no school to pick -
-# the broadest school mask (all schools, Physical included) makes it universal,
-# which is what the talent always meant.
+# Spec names are scopes the policy explicitly rejects ("don't have class or school
+# (Destro/Resto/Affliction/Elemental) limited talents"), so a tooltip that scopes
+# itself to one is mapped to the schools that spec's spells actually use.
+SPEC_SCHOOLS = {
+    "destruction": 4 | 32,   # Warlock: fire and shadow
+    "affliction": 32,
+    "demonology": 32,
+    "elemental": 8 | 4,      # Shaman: lightning and fire
+    "enhancement": 1 | 8,
+    "balance": 64 | 8,
+    "feral": 1,
+    "guardian": 1,
+    "restoration": 0,        # healing - no school, handled as heal intent
+    "discipline": 2,
+    "holy": 2,
+    "shadow": 32,
+    "arcane": 64,
+    "fire": 4,
+    "frost": 16,
+    "arms": 1, "fury": 1, "protection": 1,
+    "marksmanship": 1, "survival": 1, "beast mastery": 1,
+    "assassination": 1, "combat": 1, "subtlety": 1,
+    "blood": 1 | 16, "unholy": 1 | 32,
+}
+
+# "all instant cast spells", "all spells", "your abilities": the tooltip already
+# says the scope is everything, so there is no school to pick - the broadest school
+# mask (every school, Physical included) makes it universal, which is what the
+# talent always meant. Matched as substrings of the lowercased tooltip, so the
+# stems cover the plurals ("all spell" catches "all spells").
 UNIVERSAL_MASK = 127
-# Matched as substrings of the lowercased tooltip, so the stems cover the plurals:
-# "all spell" catches both "all spell" and "all spells".
 UNIVERSAL_PHRASES = ("all spell", "all abilit", "all attack", "and abilit",
                      "your abilit", "offensive abilit", "ranged abilit",
                      "all combo point", "all damage", "your damage",
-                     "all shapeshift", "all your")
+                     "all instant cast", "instant cast", "instant spell",
+                     "all shapeshift", "healing spell", "periodic", "all your")
 
 # positions inside a build_family_index entry
 INDEX_SCHOOL = 3
@@ -159,6 +184,17 @@ def derive_school(dbc, index, result, spells):
     if named:
         return named, f"tooltip names {', '.join(sorted(set(matched))[:3])}"
 
+    specs = 0
+    spec_hit = []
+    for spec, mask in SPEC_SCHOOLS.items():
+        if f"{spec} spells" in text or f"{spec} abilities" in text:
+            specs |= mask
+            spec_hit.append(spec)
+    if spec_hit:
+        if specs:
+            return specs, f"spec scope '{spec_hit[0]}' -> its schools"
+        return UNIVERSAL_MASK, f"spec scope '{spec_hit[0]}' (restoration) -> healing"
+
     words = 0
     for word in text.replace("spell", " ").replace("damage", " ").split():
         token = word.strip(".,;:()")
@@ -172,47 +208,107 @@ def derive_school(dbc, index, result, spells):
     return 0, "no school, spell name or scope in the tooltip"
 
 
-def convert_effects(result, spells, school_mask):
+def detect_intent(text):
+    """
+    (damage, heal) for a talent, read off its tooltip.
+
+    The `side` flag from the breakdown is a review marker, not a verdict: it calls
+    a talent "hybrid" whenever its classmask touches a healing spell, so "Bloody
+    Strikes: increases the *damage* of Blood Strike" is flagged hybrid purely
+    because Death Strike heals itself. The tooltip says which of the two the
+    talent actually boosts, and that decides whether it needs a damage school aura,
+    a healing aura, or both.
+    """
+    damage = ("damage" in text) or ("dealt by" in text)
+    heal = ("healed" in text) or ("healing" in text) or ("amount healed" in text)
+    return damage, heal
+
+
+def convert_effects(result, spells, school_mask, intent):
     """
     {spellId: {slot: (aura, misc, amount) or None}} - the rewrites per rank spell.
 
-    A slot holding a convertible ADD_*_MODIFIER becomes (new aura, school, amount).
-    Slots that collapse onto the same (aura, misc) pair are merged: the summed
-    amount goes in the first slot and the others are blanked (None), because the
-    engine *multiplies* matching auras, so two copies would double-dip rather than
-    add - e.g. Fire Power carries DAMAGE and DOT mods that both become "Fire
-    spells" once the scope is a school.
+    The op picks the aura family, the intent picks which side of it to cover:
+
+      DAMAGE / DOT + damage intent -> MOD_DAMAGE_PERCENT_DONE (school)
+      DAMAGE / DOT + heal intent   -> MOD_HEALING_DONE_PERCENT (no school parameter,
+                                      so a healing talent becomes "you heal more")
+      DAMAGE / DOT + both          -> both auras
+      everything else              -> its school aura (crit chance, crit damage, hit
+                                      chance and cost all apply to heals as well as
+                                      damage, so they need no intent split)
+
+    Slots that collapse onto the same (aura, misc) pair are merged with their
+    amounts summed, because the engine *multiplies* matching auras, so two copies
+    would double-dip rather than add. An intent that needs a second aura takes a
+    free effect slot (Effect_N == 0), and the chain is reported if the spell has
+    none left.
     """
+    damage_intent, heal_intent = intent
     out = {}
     for spell_id in result["ranks"]:
         row = spells.get(spell_id)
         if not row:
             continue
-        wanted = collections.defaultdict(list)
+        outputs = []            # [(aura, misc, amount)]
+        origin = []             # the slot each output came from
         for slot in range(3):
             aura = row[SF_AURA + slot]
             op = row[SF_MISCA + slot]
             if aura not in (ADD_FLAT_MODIFIER, ADD_PCT_MODIFIER) or op not in CONVERTIBLE:
                 continue
             flat, pct = CONVERTIBLE[op]
-            replacement = pct if aura == ADD_PCT_MODIFIER else flat
-            if replacement is None:
-                return None, f"no lever for {SPELLMOD_OP_NAMES.get(op, op)} (aura {aura})"
-            wanted[(replacement, school_mask)].append(
-                (slot, row[SF_BASEPOINTS + slot] + 1))
-        if not wanted:
+            amount = row[SF_BASEPOINTS + slot] + 1
+            if op in (0, 22):                       # DAMAGE / DOT: intent decides
+                replacements = []
+                if damage_intent:
+                    replacements.append((79, school_mask, amount))
+                if heal_intent:
+                    replacements.append((136, 0, amount))
+                if not replacements:                # neither word in the tooltip
+                    replacements.append((79, school_mask, amount))
+            else:
+                replacement = pct if aura == ADD_PCT_MODIFIER else flat
+                if replacement is None:
+                    return None, f"no lever for {SPELLMOD_OP_NAMES.get(op, op)} (aura {aura})"
+                replacements = [(replacement, school_mask, amount)]
+            for entry in replacements:
+                outputs.append(entry)
+                origin.append(slot)
+
+        if not outputs:
             continue
+
+        # merge identical (aura, misc) pairs, keeping first-seen order
+        merged = {}
+        for entry, slot in zip(outputs, origin):
+            key = (entry[0], entry[1])
+            if key in merged:
+                merged[key] = (merged[key][0], merged[key][1],
+                               merged[key][2] + entry[2], merged[key][3])
+            else:
+                merged[key] = (entry[0], entry[1], entry[2], slot)
+
         rewrites = {}
-        for (aura, misc), entries in wanted.items():
-            entries.sort()
-            rewrites[entries[0][0]] = (aura, misc, sum(amount for _, amount in entries))
-            for slot, _ in entries[1:]:
-                rewrites[slot] = None
+        free = [s for s in range(3) if row[SF_EFFECT + s] == 0]
+        for aura, misc, amount, slot in merged.values():
+            target = None
+            if slot not in rewrites:
+                target = slot
+            else:
+                target = next((s for s in free if s not in rewrites), None)
+            if target is None:
+                return None, "no free effect slot for the second aura"
+            rewrites[target] = (aura, misc, amount)
+        # A slot whose output was merged into another slot must be blanked, or it
+        # would keep its original class-scoped ADD_*_MODIFIER and stay class-bound.
+        for slot in {s for s in origin} - set(rewrites):
+            rewrites[slot] = None
         out[spell_id] = rewrites
     return out, None
 
 
-def select_chains(results, side):
+def select_chains(results):
     """(convertible, skipped) for the chains this policy can act on."""
     selected, skipped = [], collections.Counter()
     for result in results:
@@ -227,9 +323,6 @@ def select_chains(results, side):
         if unsupported:
             skipped["no verified lever: " + ", ".join(
                 sorted(SPELLMOD_OP_NAMES.get(o, str(o)) for o in unsupported))] += 1
-            continue
-        if side.get(result["talentId"]) != "damage":
-            skipped[f"{side.get(result['talentId'])} side"] += 1
             continue
         selected.append(result)
     return selected, skipped
@@ -301,15 +394,17 @@ def render_report(planned, skipped, unresolved):
     for reason, count in skipped.most_common():
         add(f"- {reason}: {count}")
     add("")
-    add("## Converted (school derived from the tooltip)")
+    add("## Converted (school + intent derived from the tooltip)")
     add("")
-    add("| class | talent | school | ops | why |")
-    add("|---|---|---|---|---|")
-    for result, mask, reason, _ in sorted(planned, key=lambda p: (p[0]["className"], p[0]["name"])):
+    add("| class | talent | school | intent | ops | why |")
+    add("|---|---|---|---|---|---|")
+    for result, mask, reason, intent_name in sorted(planned,
+                                                    key=lambda p: (p[0]["className"], p[0]["name"])):
         ops = ", ".join(sorted({SPELLMOD_OP_NAMES.get(e["misc"], str(e["misc"]))
                                 for e in result["effects"]
                                 if e["verdict"] == "spellmod-class-scoped"}))
-        add(f"| {result['className']} | {result['name']} | {school_name(mask)} | {ops} | {reason} |")
+        add(f"| {result['className']} | {result['name']} | {school_name(mask)} | "
+            f"{intent_name} | {ops} | {reason} |")
     add("")
     add("## Needs a human school choice")
     add("")
@@ -399,28 +494,45 @@ def main():
     index = build_family_index(dbc)
     side = {r["talentId"]: r["side"] for r in analyze_breakdown(results, index)}
 
-    selected, skipped = select_chains(results, side)
+    selected, skipped = select_chains(results)
     conversions, planned, unresolved = {}, [], []
     for result in selected:
         mask, reason = derive_school(dbc, index, result, spells)
+        text = dbc_string(dbc, spells[result["ranks"][0]][SF_DESC]).lower()
+        intent = detect_intent(text)
+        ops = {e["misc"] for e in result["effects"] if e["verdict"] == "spellmod-class-scoped"}
+        # The tooltip does not always say "damage" or "healed" ("Increases the effect
+        # of your Rejuvenation spell"), so fall back to what the spells it governs
+        # actually do - Rejuvenation only heals, so that talent is healing-side.
+        if not any(intent) and ops & {0, 22} and side.get(result["talentId"]) == "heal-only":
+            intent = (False, True)
+            reason = reason or "tooltip names no side; its spells only heal"
+        # A healing aura (136) has no school parameter, so a heal-only talent needs
+        # no school - only the damage side of a "both" talent does.
+        if not mask and intent[1] and not intent[0]:
+            mask = UNIVERSAL_MASK
+            reason = "schoolless healing (MOD_HEALING_DONE_PERCENT ignores misc)"
+        intent_name = "both" if all(intent) else ("damage" if intent[0] else
+                                                  ("heal" if intent[1] else "unspecified"))
         if not mask:
-            text = dbc_string(dbc, spells[result["ranks"][0]][SF_DESC])[:90]
-            ops = ", ".join(sorted({SPELLMOD_OP_NAMES.get(e["misc"], str(e["misc"]))
-                                    for e in result["effects"]
-                                    if e["verdict"] == "spellmod-class-scoped"}))
-            unresolved.append((result, ops, text))
+            unresolved.append((result, ", ".join(sorted(
+                {SPELLMOD_OP_NAMES.get(e["misc"], str(e["misc"])) for e in result["effects"]
+                 if e["verdict"] == "spellmod-class-scoped"})), text[:90]))
             continue
-        rewrites, error = convert_effects(result, spells, mask)
+        rewrites, error = convert_effects(result, spells, mask, intent)
         if error or not rewrites:
             skipped[error or "nothing to rewrite"] += 1
             continue
         conversions.update(rewrites)
-        planned.append((result, mask, reason, rewrites))
+        planned.append((result, mask, reason, intent_name))
 
     print(f"convertible chains : {len(planned)}", file=sys.stderr)
     print(f"spells rewritten   : {len(conversions)}", file=sys.stderr)
     print(f"needs a human call : {len(unresolved)}", file=sys.stderr)
     print(f"out of scope       : {dict(skipped)}", file=sys.stderr)
+    print("intent mix         : " + ", ".join(
+        f"{name} {count}" for name, count in
+        collections.Counter(p[3] for p in planned).most_common()), file=sys.stderr)
 
     if args.report:
         with open(args.report, "w", encoding="utf-8", newline="\n") as handle:
