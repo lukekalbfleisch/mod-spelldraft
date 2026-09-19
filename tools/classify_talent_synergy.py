@@ -650,22 +650,28 @@ def render_breakdown(rows, overrides=0):
     spell_only = [r for r in untouched if r not in wide3 and r not in blocked]
     add("| bucket | chains | disposition |")
     add("|---|---:|---|")
-    add(f"| class-wide Tier 3 (multi-bit mask) | {len(wide3)} | **re-author**: no lever for a "
-        "magnitude op, and the only class-scoped set left |")
+    add(f"| class-wide Tier 3 (multi-bit mask) | {len(wide3)} | **left class-locked** "
+        "(decision, see below) |")
     add(f"| spell-scoped, one op has a lever | {len(blocked)} | **leave**: the policy allows a "
         "spell scope (\"your fireball does more damage\") |")
     add(f"| spell-scoped, no lever at all | {len(spell_only)} | **leave**: already what their "
         "tooltips say |")
     add("")
-    add("### Class-wide Tier 3 - the only class-scoped chains left")
+    add("### Class-wide Tier 3 - the only class-scoped chains left, kept as-is")
     add("")
     add("A multi-bit mask groups spells by class theme, so these are the chains that are")
-    add("still family-scoped. Their blocking op has no school lever, and dropping the")
-    add("family is **not** the answer here the way it was for Tier 2: these ops scale an")
-    add("effect's *value* (`Unit::ApplyEffectModifiers` applies `ALL_EFFECTS`/`EFFECT1-3` to")
-    add("it, `BONUS_MULTIPLIER` to a spellpower coefficient), so making one universal is a")
-    add("blanket power increase rather than a widened quality-of-life scope. Each needs a")
-    add("replacement effect chosen by hand.")
+    add("still family-scoped. Their blocking op has no school lever, and dropping the family")
+    add("is **not** the answer here the way it was for Tier 2: these ops scale an effect's")
+    add("*value* (`Unit::ApplyEffectModifiers` applies `ALL_EFFECTS`/`EFFECT1-3` to it,")
+    add("`BONUS_MULTIPLIER` to a spellpower coefficient), so making one universal is a blanket")
+    add("power increase rather than a widened quality-of-life scope - it would multiply every")
+    add("spell's effect, not just a cooldown or a range.")
+    add("")
+    add("**Decision: they stay class-locked.** Each would need a replacement effect chosen by")
+    add("hand, which is a design task per talent, and this is a bounded tail - 27 of 921")
+    add("chains. A pairing still gets that tree's other talents, and the classmask is left")
+    add("intact so nothing here is ambiguous if one is revisited later. They are listed with")
+    add("their blocking op so that revisiting is easy.")
     add("")
     add("| class | talent | blocking op | ops |")
     add("|---|---|---|---|")
@@ -720,6 +726,11 @@ def render_breakdown(rows, overrides=0):
     add("only the client tooltip needs the client patch (`patch-P.mpq` + `dbc/Spell.dbc`) to")
     add("stop lying. Both go through `tools/build_client_patch.py`.")
     add("")
+
+    # The two sections below describe starting Tier 1 work, so they only make sense
+    # while any of it is left.
+    if not tier1:
+        return "\n".join(lines) + "\n"
 
     recommended = [r for r in rows if r["tier"] == "1" and not r["improved"]
                    and r["side"] == "damage"]

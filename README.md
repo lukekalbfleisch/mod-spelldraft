@@ -207,25 +207,38 @@ review flag was for — it fires whenever a classmask merely *touches* a healing
 ("the damage of Blood Strike" is flagged hybrid because Death Strike heals itself), so the
 tooltip, not the mask, decides.
 
-No school-lever talent is left unconverted: every op in the Tier 1 bucket now has a
-verified replacement.
+**Every op that has a school lever is converted** — that is the whole Tier 1 bucket, 138
+chains / 439 spells, including `THREAT`. What is left is 156 `needs-redesign` chains, and
+**129 of them are spell-scoped, which the policy allows** ("your fireball does more damage"
+is one of its own examples), so they are not violations and need nothing:
 
-Deliberately **not** broadened:
+| bucket | chains | disposition |
+|---|---:|---|
+| class-wide Tier 3 (multi-bit mask) | 27 | **left class-locked** (decision, below) |
+| spell-scoped, one op has a lever | 20 | leave |
+| spell-scoped, no lever at all | 109 | leave |
 
-- **One-spell talents** (46, e.g. `Improved Fireball`). Their classmask is a single bit,
-  so broadening them would mean, say, `Soul Warding`'s −4s Power Word: Shield cooldown
-  applying to *every* cooldown the character has. They stay spell-specific, which is what
-  their tooltips say.
-- **Effect-slot talents** (111). `ALL_EFFECTS`/`EFFECT1-3`/`*_MULTIPLIER` scale a specific
-  effect slot of a specific spell, so there is no generic substitute. Most of them (85 of
-  the original 117) have a single-spell classmask, i.e. they are already spell-specific
-  and their tooltips say so; the rest are class-wide and would need re-authoring.
+Deliberately **not** broadened, with the reason:
 
-`python3 tools/classify_talent_synergy.py --breakdown` lists the current state of what
-remains — after both batches that is 48 single-spell talents, 111 effect-slot ones, and the
-`THREAT`-carrying chains that the Tier 2 policy widened wholesale — and `--apply-spell-dbc`
-makes either report reflect what the server actually loads. Both generators have a `--check`
-mode that verifies their SQL is applied.
+- **Spell-scoped talents** (129). Their classmask keys on a specific spell (`Improved
+  Fireball`, `Good Revenge`, `Brambles`) and the policy permits that scope, so they stay
+  what their tooltips say. The 20 that do have a lever on *one* op stay too, for the same
+  reason the Tier 2 policy left the single-spell talents alone: converting "Good Revenge"
+  (+30% damage to Revenge) would make it "+30% damage to every Physical spell", turning a
+  niche talent into a global buff. There is no lever at all for the other 109.
+- **The 27 class-wide Tier 3 chains** — the only class-scoped talents left, kept as-is by
+  decision. Their binding op scales an effect's **value**
+  (`Unit::ApplyEffectModifiers` applies `ALL_EFFECTS`/`EFFECT1-3` to it, `BONUS_MULTIPLIER`
+  to a spellpower coefficient), so dropping the family — the Tier 2 treatment — would
+  multiply *every* spell's effect instead of widening a cooldown or a range. Fixing them
+  means choosing a replacement effect by hand, one design call per talent, so they are
+  recorded as a bounded tail (27 of 921 chains) rather than converted; a pairing still gets
+  that tree's other talents. `--breakdown` lists all 27 with their blocking op.
+
+`python3 tools/classify_talent_synergy.py --breakdown` writes that state locally
+(`docs/TALENT_REDESIGN_PLAN.md`), and `--apply-spell-dbc` makes either report reflect what
+the server actually loads. Both generators have a `--check` mode that verifies their SQL is
+applied.
 
 To see what actually changed, rather than read a 200-column diff:
 `python3 tools/report_talent_changes.py` writes `docs/TALENT_CHANGES.md` (local, like the
