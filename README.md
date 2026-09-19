@@ -180,7 +180,15 @@ spells whose schools union to five or six different ones, and the talent's own
 in priority order: the affected spells named in the tooltip ("your Backstab, Mutilate,
 Garrote and Ambush" → Physical), a spec name ("your Destruction spells" → its schools),
 a school named in it ("of your Arcane spells" → Arcane), or an explicit "all spells" /
-"your instant spells" → every school.
+"your instant spells" → every school. A named spell can appear with more than one school, and
+those two reasons cannot be separated from the data: `Holy Fire` is Holy in 44 rows and Fire in
+32 because its direct damage and its DoT are separate spells, while `Cone of Cold` is Frost in
+54 rows and Nature in 3 because an NPC-only variant sits in the same family with a different
+school. Narrowing to the majority would drop the DoT from the first case (`Searing Light` has to
+keep reaching it) and any threshold separating 33% from 40% would be fitted to those six chains,
+so the union stands — it errs *wider*, the direction the policy wants — and
+`tools/school_scope_tier1.py --report` lists all six as a review section with the row counts, so
+the extra school is visible rather than silent.
 
 The **side** comes from the tooltip too, because a talent's `DAMAGE`/`DOT` mod covers both
 damage and healing (Blizzard used the same lever for "+healing%"): "increases the amount

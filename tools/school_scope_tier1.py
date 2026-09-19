@@ -180,6 +180,18 @@ def derive_school(dbc, index, result, spells):
     text = (dbc_string(dbc, row[SF_DESC]) if row else "").lower()
     scoped = [e for e in result["effects"] if e["verdict"] == "spellmod-class-scoped"]
 
+    # Union of the schools of every named spell - deliberate, and reported.
+    # A named spell can be used with more than one school, and the two reasons are
+    # not separable from the data: `Holy Fire` is Holy in 44 rows and Fire in 32
+    # because its direct damage and its DoT are separate spells, while
+    # `Cone of Cold` is Frost in 54 rows and Nature in 3 (Physical in 6 more)
+    # because NPC-only variants sit in the same family with a different school.
+    # Narrowing to the majority would fix the second case but drop the DoT from
+    # the first (`Searing Light` must still reach Holy Fire's Fire component), and
+    # any count threshold that splits 33% from 40% would be fitted to six chains.
+    # So the union stands, which errs *wider* - the direction the broadening
+    # policy wants - and `school_spread` lists these chains in the report so the
+    # extra school is visible rather than silent.
     named, matched = 0, []
     for effect in scoped:
         for candidate in index.get(effect["family"], ()):
@@ -215,6 +227,38 @@ def derive_school(dbc, index, result, spells):
         if phrase in text:
             return UNIVERSAL_MASK, f'tooltip says "{phrase}" - universal'
     return 0, "no school, spell name or scope in the tooltip"
+
+
+def school_spread(dbc, index, result, spells):
+    """[(name, school, rows, total)] for named spells used with >1 school.
+
+    These are the chains whose mask may be wider than the tooltip implies: the
+    named spell exists in the family with a second school, and the union picks it
+    up. Usually that is a real component (Holy Fire's Fire DoT) and occasionally
+    an NPC-only variant (Cone of Cold's Nature/Physical). Kept as a review list
+    rather than resolved by a threshold - see `derive_school`.
+    """
+    row = spells.get(result["ranks"][0])
+    text = (dbc_string(dbc, row[SF_DESC]) if row else "").lower()
+    hits = collections.defaultdict(collections.Counter)
+    for effect in result["effects"]:
+        if effect["verdict"] != "spellmod-class-scoped":
+            continue
+        for candidate in index.get(effect["family"], ()):
+            if not any(effect["mask"][j] and (candidate[j] & effect["mask"][j])
+                       for j in range(3)):
+                continue
+            name = dbc_string(dbc, candidate[INDEX_NAME]).lower()
+            if len(name) >= 5 and name in text:
+                hits[name][candidate[INDEX_SCHOOL]] += 1
+    spread = []
+    for name, counts in sorted(hits.items()):
+        if len(counts) < 2:
+            continue
+        total = sum(counts.values())
+        for bits, count in sorted(counts.items(), key=lambda item: -item[1]):
+            spread.append((name, bits, count, total))
+    return spread
 
 
 def detect_intent(text):
@@ -401,7 +445,7 @@ def render_sql(conversions, spells, columns, dbc_path):
     return "\n".join(lines) + "\n"
 
 
-def render_report(planned, skipped, unresolved):
+def render_report(planned, skipped, unresolved, spread_rows):
     lines = []
     add = lines.append
     add("# Tier 1 school scoping - derivation")
@@ -434,6 +478,23 @@ def render_report(planned, skipped, unresolved):
     add("|---|---|---|---|")
     for result, ops, text in unresolved:
         add(f"| {result['className']} | {result['name']} | {ops} | {text} |")
+    add("")
+    add("## Masks that may be wider than the tooltip implies (review)")
+    add("")
+    add("A named spell used with more than one school: the union takes all of them,")
+    add("so the mask covers the extra school(s). Usually that is a real component of the")
+    add("spell (Holy Fire's direct damage is Holy, its DoT is Fire); occasionally it is")
+    add("an NPC-only variant sitting in the same family (Cone of Cold is Frost for the")
+    add("player ranks and Nature for one NPC row). Erring wide is the policy, so these")
+    add("are listed rather than resolved by a threshold that would be fitted to them.")
+    add("")
+    add("| class | talent | mask | named spell | school | rows |")
+    add("|---|---|---|---|---|---|")
+    for result, mask, spread in sorted(spread_rows,
+                                        key=lambda p: (p[0]["className"], p[0]["name"])):
+        for name, bits, count, total in spread:
+            add(f"| {result['className']} | {result['name']} | {school_name(mask)} | "
+                f"{name} | {school_name(bits)} | {count} of {total} |")
     add("")
     return "\n".join(lines) + "\n"
 
@@ -515,7 +576,7 @@ def main():
     side = {r["talentId"]: r["side"] for r in analyze_breakdown(results, index)}
 
     selected, skipped = select_chains(results)
-    conversions, planned, unresolved = {}, [], []
+    conversions, planned, unresolved, spread_rows = {}, [], [], []
     for result in selected:
         mask, reason = derive_school(dbc, index, result, spells)
         text = dbc_string(dbc, spells[result["ranks"][0]][SF_DESC]).lower()
@@ -552,18 +613,23 @@ def main():
             continue
         conversions.update(rewrites)
         planned.append((result, mask, reason, intent_name))
+        spread = school_spread(dbc, index, result, spells)
+        if spread:
+            spread_rows.append((result, mask, spread))
 
     print(f"convertible chains : {len(planned)}", file=sys.stderr)
     print(f"spells rewritten   : {len(conversions)}", file=sys.stderr)
     print(f"needs a human call : {len(unresolved)}", file=sys.stderr)
     print(f"out of scope       : {dict(skipped)}", file=sys.stderr)
+    print(f"mask wider than the named spells: {len(spread_rows)} chain(s), see the report",
+          file=sys.stderr)
     print("intent mix         : " + ", ".join(
         f"{name} {count}" for name, count in
         collections.Counter(p[3] for p in planned).most_common()), file=sys.stderr)
 
     if args.report:
         with open(args.report, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(render_report(planned, skipped, unresolved))
+            handle.write(render_report(planned, skipped, unresolved, spread_rows))
         print(f"wrote {args.report}", file=sys.stderr)
 
     if args.check:
