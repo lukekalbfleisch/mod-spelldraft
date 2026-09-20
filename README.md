@@ -525,6 +525,46 @@ For testing and verification in-game, you can use the following `.additem` comma
 
 ---
 
+## Testing & Verification
+
+Three layers, cheapest first. None of them need a rebuild.
+
+1. **Static checks** — `python3 apps/codestyle/codestyle-cpp.py <files>` and `codestyle-sql.py <files>`; plus `python3 tools/generate_talent_data.py --check` and `python3 tools/report_talent_changes.py --check` for drift between the generated data and the committed files.
+2. **The Eluna self-test rig** — assertions about talents, skills, spellbook and power that only the worldserver can see, scored from the log. It is off by default because most batteries mutate the character they run on.
+   ```bash
+   # enable in the deployed lua_scripts/spelldraft_config.lua, then log in a
+   # character named "Sdtest*" (or whisper yourself SD_SELFTEST), then:
+   python3 tools/run_selftest.py
+   ```
+   `tools/run_selftest.py --battery <name>` scores one battery, `--all-runs` every run in the log window, `--file` a saved log; exit code 2 means the rig never ran. The batteries are `smoke` (read-only), `multiclass_identity`, `hybrid_power` and `talent_skill_state` — the last one asserts the per-class proficiency contract and the drop-it-again revocation. Deeper notes live in `docs/SELFTEST.md` (local, like the other `docs/` files — see below).
+3. **DB/state probes** — for anything about what the server actually loaded, ask it rather than reading the SQL: `spell_dbc` is the effective row for an overridden spell, and `talent_dbc` for the talent trees.
+
+Note that `docs/` is gitignored on purpose: it holds working documents (talent reports, the redesign plan, the spell registry) that are written and regenerated locally, not shipped with the module.
+
+### Documents that are generated — regenerate, don't hand-edit
+
+| document | generator |
+|---|---|
+| `docs/TALENT_SYNERGY.md` | `python3 tools/classify_talent_synergy.py --apply-spell-dbc --out docs/TALENT_SYNERGY.md` |
+| `docs/TALENT_CHANGES.md` | `python3 tools/report_talent_changes.py` |
+| `docs/TALENT_TOOLTIPS.md` | `python3 tools/reword_talent_tooltips.py` |
+| `SpellData_Talents.lua`, `talent_dbc` dumps | `python3 tools/generate_talent_data.py` |
+
+**Pass `--apply-spell-dbc`** (or the equivalent flag) to the classifier: without it the
+report describes the raw `Spell.dbc` and ignores every scoping change made in SQL, which
+silently produces very different numbers (350 vs 156 `needs-redesign` chains as of
+2026-09-20). The report now records which mode produced it, at the top.
+
+### Adding a custom spell
+
+Read `docs/CUSTOM_SPELLS.md` (local) first — it is the id registry plus the rule that
+decides whether a spell needs a client `Spell.dbc` row (anything a player presses) or
+only a `spell_dbc` row (anything only the server casts). In short: **a serverside-only
+spell is invisible to the client**, so a player-facing ability has to be authored into
+the client patch the way `tools/eq_spell_pack.json` does it.
+
+---
+
 ## Building Client Patches for HD Repacks
 
 The repository ships `wow-client/Data/patch-P.mpq` built for the **native 3.3.5a client only**. A client counts as "native" only if its `Data/` folder contains nothing beyond Blizzard's archives (`common`, `expansion`, `lichking`, `patch`, `patch-2`, `patch-3` + locale equivalents) — any extra lettered `patch-*.mpq` (HD model packs, repack content) means you need a custom compile, even if the install is labelled a clean client. HD / custom repack clients need their own compile, for two reasons:
