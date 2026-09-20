@@ -48,6 +48,15 @@ SPELL_DESC_FIELD = 170
 EQ_BASE_TEMPLATE = 25809
 EQ_CUSTOM_FAMILY = 220
 
+# Attribute word the EQ talent rank spells carry: SPELL_ATTR0_IS_ABILITY |
+# SPELL_ATTR0_PASSIVE | SPELL_ATTR0_DO_NOT_DISPLAY | SPELL_ATTR0_DO_NOT_LOG.
+# 547 of this Spell.dbc's 892 talent rank spells carry exactly this, and it is
+# load-bearing: the core only auto-casts a learned talent's rank spell when the
+# spell IsPassive() (Player::_addTalentAurasAndSpells, Player.cpp:3153, and the
+# same test at :3350), so a rank spell with Attributes 0 is learned and then
+# never applied - which is what all 29 EQ talents did before this was set.
+TALENT_ATTRIBUTES = 0x1d0
+
 
 def bitmask32(bit):
     """1 << bit as a two's-complement signed int32 (DBC fields pack as 'i',
@@ -211,6 +220,7 @@ def build_eq_talent_row(spells, base, spec):
     row[SF_CATEGORY] = row[SF_DISPEL] = row[SF_MECHANIC] = 0
     for i in range(SF_ATTR0, SF_ATTR0 + 8):
         row[i] = 0
+    row[SF_ATTR0] = TALENT_ATTRIBUTES  # passive, or the aura is never applied
     for i in range(SF_STANCES, SF_STANCES + 4):
         row[i] = 0
     row[SF_TARGETS] = 0
@@ -254,7 +264,14 @@ def build_eq_talent_row(spells, base, spec):
     row[SF_DESC] = spells.add_string(spec['tooltip'])
     row[SF_TOOLTIP] = spells.add_string(spec['tooltip'])
     row[SF_MANAPCT] = 0
-    row[SF_FAMILY] = 0
+    # The custom family the EQ spell pack's own spells carry (build_eq_spell_row
+    # sets the same value plus its one family flag when the spec has a
+    # `family_bit`). It has to match, because IsAffected() compares the mod
+    # carrier's family with the cast spell's before it ever reads the classmask:
+    # with family 0 the comparison short-circuits true, so every effect below
+    # would hit every spell the character casts - which silently made the
+    # documented per-EQ-spell targeting in eq_talent_pack.json a no-op.
+    row[SF_FAMILY] = EQ_CUSTOM_FAMILY
     for i in range(SF_FAMILYFLAGS, SF_FAMILYFLAGS + 3):
         row[i] = 0
     row[SF_MAXTARGETS] = 0

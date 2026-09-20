@@ -692,6 +692,29 @@ CONFIG = {
         [4] = 300000,   -- Epic enchant: 30g
         [5] = 600000,   -- Legendary enchant: 60g
     },
+
+    ---------------------------------------------------------------------------
+    -- SELF-TEST rig (SpellDraft/selftest.lua)
+    --
+    -- Off by default, and must stay that way on a server people play on: the
+    -- batteries mutate the character they run on (secondary class, level, bags)
+    -- and only restore it afterwards on a clean pass.
+    --
+    -- With it enabled, a battery run is triggered either by logging in a
+    -- character whose name starts with SELFTEST_NAME_PREFIX, or at any time by
+    -- whispering yourself `SD_SELFTEST` (or `SD_SELFTEST <battery>`).
+    -- Results go to the worldserver log as [SDTEST] lines, which
+    -- tools/run_selftest.py parses.
+    ---------------------------------------------------------------------------
+    SELFTEST_ENABLED = false,
+
+    --Only characters whose name starts with this run a battery on login.
+    --Keep it in sync with the bot name prefix used by the e2e login driver.
+    SELFTEST_NAME_PREFIX = "Sdtest",
+
+    --Let `SD_SELFTEST` whispers trigger a run even from a normally-named
+    --character. The name-prefix gate above still applies to the login trigger.
+    SELFTEST_ALLOW_WHISPER = true,
 }
 
 -- Normalise the mode so a typo can never silently disable drafting: only the

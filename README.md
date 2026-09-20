@@ -127,6 +127,15 @@ To give you more control over your character's build, `mod-spelldraft` features 
 *   **Locked Talents (Draft-Only):** Active abilities, shapeshift forms, and playstyle-defining passive talents (like *Titan's Grip*, *Metamorphosis*, or *Tree of Life*) are **locked** (marked with a lock icon in the UI). These **cannot** be purchased with points and must be rolled and drafted from a **Tome of Talents** (drops chance from enemies and Bosses).
 *   **Respecs:** If you wish to change your build, talk to **Nibbs the Imp** in starter zones or capital cities. He will reset all manually purchased talents and refund all spent points for free. Spells and talents you obtained through drafts are locked in and will not be touched by respecs.
 
+**A second, independent talent route exists if `mod-multiclass` is also installed.**
+Its `MulticlassTalents` client addon (`/mct`) spends the *native* talent point pool
+(`Player::LearnTalent`, scaled by `Multiclass.TalentPointMultiplier`) instead of this
+module's `prestige_stats.talent_points` counter — the two do not share a currency,
+so a character with both modules running effectively has two separate talent
+budgets to spend across the same classes. Pick one as the traditional-mode default
+if you run both; the Grimoire is unaffected either way and keeps working exactly as
+described above for draft mode.
+
 ---
 
 ## Talent Scoping (why talents are not class-limited)
