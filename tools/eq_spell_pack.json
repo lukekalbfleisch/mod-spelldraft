@@ -1062,6 +1062,98 @@
           "target_a": 1
         }
       ]
+    },
+    {
+      "id": 999900,
+      "name": "[SPIKE TEST] WI-3 Carrier A (delete me)",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Temporary WI-3 respec spike (Enhancement tab). Learning this should grant [SPIKE TEST] WI-3 Reward A; resetting talents should remove it again. Safe to delete once the spike is proven.",
+      "icon": 208,
+      "visual": 0,
+      "school": 1,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 36,
+          "value": 1,
+          "trigger": 999901,
+          "target_a": 1
+        }
+      ]
+    },
+    {
+      "id": 999901,
+      "name": "[SPIKE TEST] WI-3 Reward A (delete me)",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Temporary WI-3 respec spike marker. If you have this, the Enhancement-side test talent granted it. Safe to delete once the spike is proven.",
+      "icon": 208,
+      "visual": 0,
+      "school": 1,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 4,
+          "value": 1,
+          "target_a": 1
+        }
+      ]
+    },
+    {
+      "id": 999902,
+      "name": "[SPIKE TEST] WI-3 Carrier B (delete me)",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Temporary WI-3 respec spike (Retribution tab). Learning this should grant [SPIKE TEST] WI-3 Reward B; resetting talents should remove it again. Safe to delete once the spike is proven.",
+      "icon": 208,
+      "visual": 0,
+      "school": 1,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 36,
+          "value": 1,
+          "trigger": 999903,
+          "target_a": 1
+        }
+      ]
+    },
+    {
+      "id": 999903,
+      "name": "[SPIKE TEST] WI-3 Reward B (delete me)",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Temporary WI-3 respec spike marker. If you have this, the Retribution-side test talent granted it. Safe to delete once the spike is proven.",
+      "icon": 208,
+      "visual": 0,
+      "school": 1,
+      "mechanic": 0,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {
+          "type": 6,
+          "aura": 4,
+          "value": 1,
+          "target_a": 1
+        }
+      ]
     }
   ]
 }
