@@ -909,6 +909,18 @@ def main():
     append_manifest_rows(cmd, manifest.get('creature_model_data', []))
     append_manifest_rows(cdi, manifest.get('creature_display_info', []))
 
+    # One-off spells that already have a live `spell_dbc` row (server-side
+    # gameplay works) but no native Spell.dbc record, so the client can't
+    # render/cast them - see tools/extract_live_spell_dbc_rows.py. Each entry
+    # is a full ~230-field row snapshotted from the DB, not a hand-typed spec,
+    # so it can't drift from what the server already runs.
+    standalone_path = MODULE / 'tools/standalone_client_spells.json'
+    if standalone_path.exists():
+        standalone = json.loads(standalone_path.read_text())['spells']
+        append_manifest_rows(spells, standalone)
+        print(f"added {len(standalone)} standalone client spell(s) to Spell.dbc: "
+              f"{[e['id'] for e in standalone]}")
+
     archive = {
         'DBFilesClient\\Item.dbc': items.dumps(),
         'DBFilesClient\\Spell.dbc': spells.dumps(),
