@@ -7,6 +7,12 @@ whole files from patch archives, so this tool appends our rows to the NATIVE
 files and packs the results into a fresh MPQ (v1, plain uncompressed storage —
 readable by the stock 3.3.5 client and by mpyq for verification).
 
+Talent.dbc is also patched (tools/talent_overrides.json): the server's own
+talent gating reads acore_world.talent_dbc directly (see
+.agents/docs/systems/talents.md), but the STOCK Blizzard talent frame reads the
+client's own Talent.dbc — a server-only tier/column move is invisible and
+unclickable there without this.
+
 New records are cloned from native template records (no field-layout
 archaeology): apply spells clone 54854 (a native glyph apply), marker auras
 clone 54292 (the beta White Bear dummy aura), items clone the Item.dbc row of
@@ -82,6 +88,43 @@ SF_VISUAL, SF_ICON = 131, 133
 SF_NAME, SF_RANK, SF_DESC, SF_TOOLTIP = 136, 153, 170, 187
 SF_MANAPCT, SF_FAMILY, SF_FAMILYFLAGS = 204, 208, 209
 SF_MAXTARGETS, SF_DMGCLASS, SF_PREVENTION, SF_SCHOOL = 212, 213, 214, 225
+
+
+# --- Talent.dbc overrides for real class tabs (tools/talent_overrides.json) --
+TALENT_OVERRIDES_PATH = MODULE / 'tools/talent_overrides.json'
+TALENT_DBC_FIELDS = 23  # ID,TabID,TierID,ColumnIndex,SpellRank_1-9,PrereqTalent_1-3,
+                        # PrereqRank_1-3,Flags,RequiredSpellID,CategoryMask_1-2
+
+
+def apply_talent_overrides(talents, path=TALENT_OVERRIDES_PATH):
+    """
+    Apply full-row Talent.dbc overrides/additions for real class tabs (Enhancement,
+    Retribution, ...) - distinct from the EQ talent pack, which only ever writes
+    TabID 0 (the drafted pool). See tools/talent_overrides.json and
+    .agents/docs/systems/talents.md.
+
+    Each entry is a complete 23-field row (talent_overrides.json's `_row_format`).
+    An ID already present in Talent.dbc is replaced in place; a new ID is appended.
+    This mirrors DBCStorageBase::LoadFromDB's own semantics server-side (full-record
+    replace-or-add by ID, never a partial field patch), so the client and server
+    talent trees can't drift from having applied different partial edits.
+
+    Returns (replaced, added).
+    """
+    if not path.exists():
+        return 0, 0
+    rows = json.loads(path.read_text(encoding='utf-8'))['overrides']
+    replaced = added = 0
+    for row in rows:
+        assert len(row) == TALENT_DBC_FIELDS, \
+            f"talent override for ID {row[0]} has {len(row)} fields, expected {TALENT_DBC_FIELDS}"
+        try:
+            talents.set_record(row[0], row)
+            replaced += 1
+        except KeyError:
+            talents.add_record(row)
+            added += 1
+    return replaced, added
 
 
 # --- talent tooltip rewords (tools/talent_tooltip_overrides.json) -------------
@@ -792,6 +835,7 @@ def main():
     spells = Dbc(src / 'native_Spell.dbc' if (src / 'native_Spell.dbc').exists() else src / 'Spell.dbc')
     props = Dbc(src / 'native_GlyphProperties.dbc' if (src / 'native_GlyphProperties.dbc').exists() else src / 'GlyphProperties.dbc')
     shapeshifts = Dbc(src / 'native_SpellShapeshiftForm.dbc' if (src / 'native_SpellShapeshiftForm.dbc').exists() else src / 'SpellShapeshiftForm.dbc')
+    talents = Dbc(src / 'native_Talent.dbc' if (src / 'native_Talent.dbc').exists() else src / 'Talent.dbc')
 
     # Set SHAPESHIFT_FLAG_STANCE (0x1) for Druid forms in SpellShapeshiftForm.dbc
     # to allow the client to cast any spell without auto-unshifting.
@@ -895,6 +939,16 @@ def main():
         print("WARNING: no talent tooltip overrides applied — "
               f"{TOOLTIP_OVERRIDES_PATH.name} is missing or empty")
 
+    # Talent.dbc overrides for real class tabs - see tools/talent_overrides.json
+    # and .agents/docs/systems/talents.md. Distinct from the EQ talent pack above,
+    # which only ever writes TabID 0 (the drafted pool); this is what lets a move
+    # in acore_world.talent_dbc reach the STOCK Blizzard talent frame too, not
+    # just /mct (which reads MulticlassTalentData.lua, a separate generated file).
+    replaced, added = apply_talent_overrides(talents)
+    if replaced or added:
+        print(f"applied {replaced} Talent.dbc row override(s), added {added} new "
+              f"talent(s) from {TALENT_OVERRIDES_PATH.name}")
+
     manifest = json.loads((MODULE / 'tools/client_patch_manifest.json').read_text())
 
     def append_manifest_rows(dbc, entries):
@@ -928,6 +982,7 @@ def main():
         'DBFilesClient\\CreatureModelData.dbc': cmd.dumps(),
         'DBFilesClient\\CreatureDisplayInfo.dbc': cdi.dumps(),
         'DBFilesClient\\SpellShapeshiftForm.dbc': shapeshifts.dumps(),
+        'DBFilesClient\\Talent.dbc': talents.dumps(),
     }
     for md in manifest.get('model_dirs', []):
         src_dir = Path(md['src'])

@@ -162,7 +162,7 @@ class Mpq:
 
 DEFAULT_DBCS = ['Spell.dbc', 'SpellShapeshiftForm.dbc', 'Item.dbc', 'GlyphProperties.dbc',
                 'CreatureModelData.dbc', 'CreatureDisplayInfo.dbc', 'CharTitles.dbc',
-                'CharBaseInfo.dbc']
+                'CharBaseInfo.dbc', 'Talent.dbc']
 
 # Our own outputs must not be treated as a base.
 OWN_ARCHIVES = {'patch-p.mpq', 'patch-enus-z.mpq'}
