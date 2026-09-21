@@ -97,16 +97,6 @@ end
 
 
 -- On login: ensure DB row, give title, maybe start ticker
-local function GetStoredClass(player)
-    local guid = player:GetGUIDLow()
-    local result = CharDBQuery("SELECT stored_class FROM prestige_stats WHERE player_id = " .. guid)
-    if result then
-        return result:GetUInt8(0)
-    end
-    return nil
-end
-
--- On login: ensure DB row, give title, maybe start ticker
 -- ── First-login grants ─────────────────────────────────────────────────────
 -- The core's `playercreateinfo_spell_custom` table ships EMPTY in this repo
 -- (data/sql/base/db_world/playercreateinfo_spell_custom.sql carries the schema
@@ -128,23 +118,10 @@ local RACIAL_SPELLS = {
     [11] = { 59547, 28878, 28875, 28877 },         -- Draenei: Gift of the Naaru, Heroic Presence, Gemcutting, Shadow Resistance
 }
 
--- The opener set per class; everything else comes from the class trainer. Death
--- Knight is created at level 55, so its row is the full level-55 starter kit (the
--- same list the prestige path re-grants at data/sql/.../spelldraft_npc.lua).
-local STARTING_CLASS_SPELLS = {
-    [1]  = { 78, 2457 },             -- Warrior: Heroic Strike, Battle Stance
-    [2]  = { 21084, 635 },           -- Paladin: Seal of Righteousness, Holy Light
-    [3]  = { 2973, 75 },             -- Hunter: Raptor Strike, Auto Shot
-    [4]  = { 1752 },                 -- Rogue: Sinister Strike
-    [5]  = { 585, 2050 },            -- Priest: Smite, Lesser Heal
-    [6]  = { 47541, 49576, 45477, 45462, 45902, 48266, 48263, 50977, 53428, 48778 },
-                                     -- DK: Death Coil, Death Grip, Icy Touch, Plague Strike, Blood Strike,
-                                     -- Blood Presence, Frost Presence, Death Gate, Runeforging, Deathcharger
-    [7]  = { 403, 331 },             -- Shaman: Lightning Bolt, Healing Wave
-    [8]  = { 133, 168 },             -- Mage: Fireball, Frost Armor
-    [9]  = { 686, 688 },             -- Warlock: Shadow Bolt, Summon Imp
-    [11] = { 5176, 5185 },           -- Druid: Wrath, Healing Touch
-}
+-- The class opener set ("starting spells") moved to the core's own
+-- `playercreateinfo_spell_custom` table (see data/sql/updates/pending_db_world/
+-- rev_1789953130582228921.sql) - character creation grants it the stock way
+-- now (PlayerStart.CustomSpells = 1) instead of through this script.
 
 -- Grants the character's racial actives/passives, skipping the ones it already
 -- has (some occupy the same slot on several races).
@@ -159,17 +136,6 @@ local function GrantRacialSpells(player)
             hasSpell = player:HasSpell(spellId)
         end
         if not hasSpell then
-            player:LearnSpell(spellId)
-        end
-    end
-end
-
--- Grants the class's level-1 opener set.
-local function GrantStartingClassSpells(player, class)
-    local classSpells = STARTING_CLASS_SPELLS[class or player:GetClass()]
-    if not classSpells then return end
-    for _, spellId in ipairs(classSpells) do
-        if not player:HasSpell(spellId) then
             player:LearnSpell(spellId)
         end
     end
@@ -252,9 +218,6 @@ local function EnsurePrestigeEntry(_, player)
                 -- Ensure all racial active and passive abilities
                 GrantRacialSpells(p)
 
-                -- Ensure starting class spells for their stored class
-                GrantStartingClassSpells(p, GetStoredClass(p))
-
                 if type(SpellDraft_SetSystemLearning) == "function" then
                     SpellDraft_SetSystemLearning(guid, false)
                 end
@@ -292,14 +255,14 @@ local function EnsurePrestigeEntry(_, player)
                 local p = GetPlayerByGUID(guid)
                 if not p or not p:IsInWorld() then return end
 
-                -- The core's `playercreateinfo_spell_custom` table is empty in this
-                -- repo, so character creation grants neither racials nor class
-                -- spells; both are handed out here (see the grants above).
+                -- Class opener spells now come from `playercreateinfo_spell_custom`
+                -- (PlayerStart.CustomSpells = 1), granted at creation by the core
+                -- itself. Racials still have no core-side equivalent, so they're
+                -- handed out here.
                 if type(SpellDraft_SetSystemLearning) == "function" then
                     SpellDraft_SetSystemLearning(guid, true)
                 end
                 GrantRacialSpells(p)
-                GrantStartingClassSpells(p, class)
                 if type(SpellDraft_SetSystemLearning) == "function" then
                     SpellDraft_SetSystemLearning(guid, false)
                 end

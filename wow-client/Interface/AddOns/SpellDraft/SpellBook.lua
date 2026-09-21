@@ -1484,19 +1484,7 @@ end
 
 SLASH_SPELLDRAFT1 = "/spelldraft"
 SlashCmdList["SPELLDRAFT"] = function(msg)
-    if not SpellDraftBookFrame then DEFAULT_CHAT_FRAME:AddMessage("|cffff4444[SpellDraft]|r Grimoire not initialized yet.") return end
-    
-    msg = string.lower(msg or "")
-    if msg == "reset button" or msg == "resetbutton" or msg == "button reset" then
-        ResetOpenButtonPosition()
-        return
-    end
-
-    if SpellDraftBookFrame:IsShown() then
-        SpellDraftBookFrame:Hide()
-    else
-        SpellDraftBookFrame:Show()
-    end
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff4444[SpellDraft]|r The Grimoire is disabled on this server.")
 end
 
 -- ----------------------------------------------------------------------------
@@ -1508,7 +1496,8 @@ initFrame:RegisterEvent("PLAYER_LOGIN")
 initFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then
         InitializeGrimoire()
-        CreateOpenButton()
+        -- The floating open button is disabled: /spelldraft is the Grimoire's
+        -- only UI entry point now, and that's disabled too, below.
     end
 end)
 

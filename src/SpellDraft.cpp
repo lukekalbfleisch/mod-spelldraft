@@ -76,7 +76,6 @@ public:
         return player->GetMaxPower(power) > 0;
     }
 
-    // 3. Grant full weapon and armor proficiencies on login and sync to the client.
     void OnPlayerLogin(Player* player) override
     {
         if (!sConfigMgr->GetOption<bool>("SpellDraft.Enable", true))
@@ -85,29 +84,6 @@ public:
             return;
 
         UpdateBaseMana(player);
-
-        // Grant full weapon and armor proficiency so the client tooltips show them as usable (not red).
-        uint32 allWeapons = (1u << MAX_ITEM_SUBCLASS_WEAPON) - 1u;
-        uint32 allArmor   = (1u << MAX_ITEM_SUBCLASS_ARMOR)  - 1u;
-
-        player->AddWeaponProficiency(allWeapons);
-        player->AddArmorProficiency(allArmor);
-        player->SendProficiency(ITEM_CLASS_WEAPON, player->GetWeaponProficiency());
-        player->SendProficiency(ITEM_CLASS_ARMOR,  player->GetArmorProficiency());
-
-        // Enable maximum weapon and armor skills so the client doesn't block equipping them.
-        uint32 weaponSkills[] = { 43, 44, 45, 46, 54, 55, 136, 160, 162, 172, 173, 176, 229, 313, 315, 433, 293, 413, 414, 415 };
-        uint32 maxSkillValue = player->GetLevel() * 5;
-        if (maxSkillValue > 400)
-            maxSkillValue = 400; // Cap at 400 for Level 80
-
-        for (uint32 skillId : weaponSkills)
-        {
-            if (!player->HasSkill(skillId))
-                player->SetSkill(skillId, 0, 1, maxSkillValue);
-            else
-                player->SetSkill(skillId, 0, maxSkillValue, maxSkillValue);
-        }
     }
 
     void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
