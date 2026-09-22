@@ -94,6 +94,12 @@ SF_MAXTARGETS, SF_DMGCLASS, SF_PREVENTION, SF_SCHOOL = 212, 213, 214, 225
 TALENT_OVERRIDES_PATH = MODULE / 'tools/talent_overrides.json'
 TALENT_DBC_FIELDS = 23  # ID,TabID,TierID,ColumnIndex,SpellRank_1-9,PrereqTalent_1-3,
                         # PrereqRank_1-3,Flags,RequiredSpellID,CategoryMask_1-2
+# The order the client needs Talent.dbc records in: it walks a tab's talents as
+# one contiguous run, so the file must be grouped by tab and ordered by tier then
+# column (wowdev DB/Talent; the native file satisfies this exactly). Appending a
+# new talent - the obvious thing to do - breaks it, and the tree silently loses
+# its other talents. See Dbc.sort_records.
+TALENT_ORDER_FIELDS = (1, 2, 3)  # TabID, TierID, ColumnIndex
 
 
 def apply_talent_overrides(talents, path=TALENT_OVERRIDES_PATH):
@@ -794,6 +800,46 @@ class Dbc:
                             self.recsize, len(self.strings))
                 + bytes(self.records) + bytes(self.strings))
 
+    def sort_records(self, fields):
+        """Reorder every record by `fields` (indices into the record).
+
+        Required for Talent.dbc: the 3.3.5a client walks a tab's talents as one
+        contiguous run, so the file has to be grouped and ordered by
+        TabID > TierID > ColumnIndex. A row added at the end of the file (or a
+        tier/column move applied in place) breaks that run and the client then
+        silently drops the tab's other talents - it renders the out-of-order
+        row in the right cell and nothing else. wowdev's DB/Talent page states
+        the rule for this DBC explicitly:
+        "your new row won't work if you add it at the end. The correct ordering
+        is: spec ID > tier > column." Verified against the native file
+        (extract_client_dbcs.py --native): 892 rows, one run per tab, zero
+        ordering violations - i.e. it is exactly sorted by that key.
+
+        Strings are untouched (record order and the string pool are separate),
+        and the sort is stable, so rows sharing a (tab, tier, column) keep
+        their relative order - native has such pairs in the two pet-talent
+        tabs 410/411.
+        """
+        rows = [list(struct.unpack_from(f'<{self.fields}i', self.records,
+                                        i * self.recsize))
+                for i in range(self.recs)]
+        rows.sort(key=lambda row: tuple(row[index] for index in fields))
+        self.records = bytearray(b''.join(
+            struct.pack(f'<{self.fields}i', *row) for row in rows))
+
+    def order_violations(self, fields):
+        """Rows that break the (fields...) ordering, as (index, id, key, prev)."""
+        previous = None
+        violations = []
+        for i in range(self.recs):
+            row = list(struct.unpack_from(f'<{self.fields}i', self.records,
+                                          i * self.recsize))
+            key = tuple(row[index] for index in fields)
+            if previous is not None and key < previous[0]:
+                violations.append((i, row[0], key, previous[0]))
+            previous = (key, row[0])
+        return violations
+
 
 # ============================================================================
 # SQL emission (mirrors the client rows server-side)
@@ -1052,6 +1098,14 @@ def main():
     if replaced or added or removed:
         print(f"applied {replaced} Talent.dbc row override(s), added {added} new, "
               f"removed {removed} talent(s) from {TALENT_OVERRIDES_PATH.name}")
+    talents.sort_records(TALENT_ORDER_FIELDS)
+    violations = talents.order_violations(TALENT_ORDER_FIELDS)
+    if violations:
+        # Loud: an out-of-order Talent.dbc makes the client drop a whole tree's
+        # talents while still drawing the stray row, which reads as "the tree
+        # only has my new talent" and is invisible to any content-level check.
+        print(f"WARNING: {len(violations)} Talent.dbc row(s) break the required "
+              f"TabID > TierID > ColumnIndex order, e.g. {violations[:3]}")
 
     manifest = json.loads((MODULE / 'tools/client_patch_manifest.json').read_text())
 
