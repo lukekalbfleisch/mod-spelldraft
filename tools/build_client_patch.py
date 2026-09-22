@@ -109,12 +109,16 @@ def apply_talent_overrides(talents, path=TALENT_OVERRIDES_PATH):
     replace-or-add by ID, never a partial field patch), so the client and server
     talent trees can't drift from having applied different partial edits.
 
-    Returns (replaced, added).
+    Returns (replaced, added, removed).
     """
     if not path.exists():
-        return 0, 0
-    rows = json.loads(path.read_text(encoding='utf-8'))['overrides']
-    replaced = added = 0
+        return 0, 0, 0
+    data = json.loads(path.read_text(encoding='utf-8'))
+    rows = data['overrides']
+    replaced = added = removed = 0
+    for record_id in data.get('removals', []):
+        if talents.remove_record(record_id):
+            removed += 1
     for row in rows:
         assert len(row) == TALENT_DBC_FIELDS, \
             f"talent override for ID {row[0]} has {len(row)} fields, expected {TALENT_DBC_FIELDS}"
@@ -124,7 +128,7 @@ def apply_talent_overrides(talents, path=TALENT_OVERRIDES_PATH):
         except KeyError:
             talents.add_record(row)
             added += 1
-    return replaced, added
+    return replaced, added, removed
 
 
 # --- talent tooltip rewords (tools/talent_tooltip_overrides.json) -------------
@@ -167,8 +171,69 @@ def apply_tooltip_overrides(spells, path=TOOLTIP_OVERRIDES_PATH):
     return applied, mismatched
 
 
+def apply_clone_overrides(spells, row, spec):
+    """Apply only explicitly-given fields to an existing record (spells whose
+    `clone_from` names a native row). Unlike build_eq_spell_row's template path
+    this deliberately does NOT reset anything: the point is to inherit a real
+    spell's full shape (equip class, prevention flags, mana %, its own effects)
+    and change just the handful of fields named, so e.g. a rank clone of Crusader
+    Strike cannot drift from its parent in some unrelated column."""
+    row[SPELL_ID_FIELD] = spec['id']
+    if 'name' in spec:
+        row[SF_NAME] = spells.add_string(spec['name'])
+    if 'rank_text' in spec:
+        row[SF_RANK] = spells.add_string(spec['rank_text'])
+    if 'tooltip' in spec:
+        desc = spells.add_string(spec['tooltip'])
+        row[SF_DESC] = desc
+        row[SF_TOOLTIP] = desc
+    if 'icon' in spec:
+        row[SF_ICON] = spec['icon']
+    if 'level' in spec:
+        row[SF_BASELEVEL] = row[SF_SPELLLEVEL] = spec['level']
+    if 'school' in spec:
+        row[SF_SCHOOL] = spec['school']
+    if 'range_idx' in spec:
+        row[SF_RANGE] = spec['range_idx']
+    if 'cooldown' in spec:
+        row[SF_RECOVERY] = spec['cooldown']
+    if 'duration_idx' in spec:
+        row[SF_DURATION] = spec['duration_idx']
+    if 'mana_cost' in spec:
+        row[SF_MANACOST] = spec['mana_cost']
+    if 'mana_pct' in spec:
+        row[SF_MANAPCT] = spec['mana_pct']
+    if 'attributes' in spec:
+        row[SF_ATTR0] = spec['attributes']
+    if 'family' in spec:
+        row[SF_FAMILY] = spec['family']
+    if 'family_flags' in spec:
+        for i in range(3):
+            row[SF_FAMILYFLAGS + i] = spec['family_flags'][i]
+
+    for i, ef in enumerate(spec.get('effects', [])[:3]):
+        if 'type' in ef:
+            row[SF_EFFECT + i] = ef['type']
+        if 'aura' in ef:
+            row[SF_AURA + i] = ef['aura']
+        if 'value' in ef:
+            row[SF_BASEPOINTS + i] = ef['value'] - 1
+        if 'target_a' in ef:
+            row[SF_TARGETA + i] = ef['target_a']
+        if 'misc_a' in ef:
+            row[SF_MISCA + i] = ef['misc_a']
+        if 'trigger' in ef:
+            row[SF_TRIGGER + i] = ef['trigger']
+        if 'classmask' in ef:
+            for j in range(3):
+                row[SF_CLASSMASK + i * 3 + j] = ef['classmask'][j]
+    return row
+
+
 def build_eq_spell_row(spells, base, spec):
     """Clone the neutral base row and apply this spell's explicit overrides."""
+    if 'clone_from' in spec:
+        return apply_clone_overrides(spells, list(spells.get_record(spec['clone_from'])), spec)
     row = list(base)
     row[SPELL_ID_FIELD] = spec['id']
     row[SF_CATEGORY] = row[SF_DISPEL] = 0
@@ -225,6 +290,14 @@ def build_eq_spell_row(spells, base, spec):
         row[SF_MISCA + i] = ef.get('misc_a', 0)
         row[SF_MISCB + i] = ef.get('misc_b', 0)
         row[SF_TRIGGER + i] = ef.get('trigger', 0)
+        # EffectSpellClassMask (three words per effect): which of the caster's
+        # spells this effect's SpellMod applies to. Only meaningful together with
+        # a real `family` below - stock "Improved <Spell>" talents are exactly
+        # this shape (family + one flag word), and it is what lets a class-tab
+        # talent target a stock spell like Stormstrike.
+        if 'classmask' in ef:
+            for j in range(3):
+                row[SF_CLASSMASK + i * 3 + j] = ef['classmask'][j]
 
     row[SF_VISUAL] = spec.get('visual', 0)
     row[SF_VISUAL + 1] = 0
@@ -239,7 +312,16 @@ def build_eq_spell_row(spells, base, spec):
     # rank chain, share a bit) so a talent's native SpellMod aura can target
     # exactly one of our spells via EffectSpellClassMask, the same mechanism
     # real "Improved <Spell>" talents use. See tools/eq_talent_pack.json.
-    if 'family_bit' in spec:
+    # SpellFamilyName: an explicit `family` lets a class-tab talent/modifier talk to
+    # a STOCK spell (Shaman 11 / Paladin 10 + an effect classmask), while
+    # `family_bit` keeps the original EQ-pack behaviour (shared custom family +
+    # one bit per spell). No key at all means family 0 - no mod can attach.
+    if 'family' in spec:
+        row[SF_FAMILY] = spec['family']
+        flags = spec.get('family_flags', [0, 0, 0])
+        for i in range(3):
+            row[SF_FAMILYFLAGS + i] = flags[i]
+    elif 'family_bit' in spec:
         row[SF_FAMILY] = EQ_CUSTOM_FAMILY
         row[SF_FAMILYFLAGS] = bitmask32(spec['family_bit'])
         row[SF_FAMILYFLAGS + 1] = 0
@@ -691,6 +773,22 @@ class Dbc:
         self.records += struct.pack(f'<{self.fields}i', *values)
         self.recs += 1
 
+    def remove_record(self, rec_id):
+        """Drop a record by ID. Returns True if it was there.
+
+        Needed because Talent.dbc is a whole-file replacement: a talent deleted
+        from acore_world.talent_dbc (learned baseline instead of bought, say)
+        also has to disappear from the client's own copy, or the stock talent
+        frame keeps drawing a talent the server refuses to sell.
+        """
+        for i in range(self.recs):
+            offset = i * self.recsize
+            if struct.unpack_from('<I', self.records, offset)[0] == rec_id:
+                del self.records[offset:offset + self.recsize]
+                self.recs -= 1
+                return True
+        return False
+
     def dumps(self):
         return (struct.pack('<4sIIII', b'WDBC', self.recs, self.fields,
                             self.recsize, len(self.strings))
@@ -950,10 +1048,10 @@ def main():
     # which only ever writes TabID 0 (the drafted pool); this is what lets a move
     # in acore_world.talent_dbc reach the STOCK Blizzard talent frame too, not
     # just /mct (which reads MulticlassTalentData.lua, a separate generated file).
-    replaced, added = apply_talent_overrides(talents)
-    if replaced or added:
-        print(f"applied {replaced} Talent.dbc row override(s), added {added} new "
-              f"talent(s) from {TALENT_OVERRIDES_PATH.name}")
+    replaced, added, removed = apply_talent_overrides(talents)
+    if replaced or added or removed:
+        print(f"applied {replaced} Talent.dbc row override(s), added {added} new, "
+              f"removed {removed} talent(s) from {TALENT_OVERRIDES_PATH.name}")
 
     manifest = json.loads((MODULE / 'tools/client_patch_manifest.json').read_text())
 

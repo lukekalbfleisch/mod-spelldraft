@@ -1,5 +1,5 @@
 {
-  "_comment": "EverQuest-inspired custom spell pack. Consumed by tools/build_client_patch.py, which clones a neutral native base row (Crippling Poison 25809: zero attributes, no stance/family/cooldown baggage) and applies these overrides, then emits both the client Spell.dbc rows (patch-P.mpq) and data/sql/db-world/28_eq_spell_pack.sql (dbc_spells + dbc_skilllineability rows so the draft pool can see them). Spell IDs 993001-993030 are reserved for this pack. 'value' is the in-game number; the tool stores value-1 in EffectBasePoints per DBC convention. 'draftable': false spells are hidden helpers (proc payloads) that get a Spell.dbc row but no draft-pool row. Icons/visuals are reused verbatim from existing native spells - no new art. Deliberately overtuned by design.",
+  "_comment": "EverQuest-inspired custom spell pack. Consumed by tools/build_client_patch.py, which clones a neutral native base row (Crippling Poison 25809: zero attributes, no stance/family/cooldown baggage) and applies these overrides, then emits both the client Spell.dbc rows (patch-P.mpq) and data/sql/db-world/28_eq_spell_pack.sql (dbc_spells + dbc_skilllineability rows so the draft pool can see them). Spell IDs 993001-993030 are reserved for this pack. 'value' is the in-game number; the tool stores value-1 in EffectBasePoints per DBC convention. 'draftable': false spells are hidden helpers (proc payloads) that get a Spell.dbc row but no draft-pool row. Icons/visuals are reused verbatim from existing native spells - no new art. Deliberately overtuned by design. IDs 993301-993320 are the class-tab talent sub-range (Squall Line / Storm's Edge / Gale Force / Crusading Zealot + the Crusader Strike rank clones / Crusader's Fury, see .agents/plans/melee-talent-rework/): all 'draftable': false, because they are talent rank spells in real class tabs (Talent.dbc rows 3000-3004) rather than draft-pool picks. Two extra keys exist for that sub-range: 'clone_from' copies a named native record verbatim and then applies only the keys present (so a rank clone cannot drift from its parent in an unrelated column), and an explicit 'family' (+ optional 'family_flags' on the spell, or a per-effect 'classmask' [w0, w1, w2]) targets a STOCK spell family - e.g. family 11 + classmask [0, 16, 0] is Stormstrike, family 10 + [0, 32768, 0] is Crusader Strike - where 'family_bit' targets this pack's own shared custom family instead.",
   "skill_line": {
     "id": 999,
     "category": 7,
@@ -1061,6 +1061,251 @@
           "value": 750,
           "target_a": 1
         }
+      ]
+    },
+    {
+      "id": 993301,
+      "name": "Squall Line",
+      "rank_text": "Rank 1",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases your melee attack speed by $s1%.",
+      "icon": 2562,
+      "attributes": 464,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 138, "value": 2, "target_a": 1}
+      ]
+    },
+    {
+      "id": 993302,
+      "name": "Squall Line",
+      "rank_text": "Rank 2",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases your melee attack speed by $s1%.",
+      "icon": 2562,
+      "attributes": 464,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 138, "value": 4, "target_a": 1}
+      ]
+    },
+    {
+      "id": 993303,
+      "name": "Squall Line",
+      "rank_text": "Rank 3",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases your melee attack speed by $s1%.",
+      "icon": 2562,
+      "attributes": 464,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 138, "value": 6, "target_a": 1}
+      ]
+    },
+    {
+      "id": 993304,
+      "name": "Storm's Edge",
+      "rank_text": "Rank 1",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases the critical strike damage bonus of your Stormstrike by $s1%.",
+      "icon": 2562,
+      "attributes": 464,
+      "family": 11,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 108, "value": 10, "misc_a": 15, "classmask": [0, 16, 0], "target_a": 1}
+      ]
+    },
+    {
+      "id": 993305,
+      "name": "Storm's Edge",
+      "rank_text": "Rank 2",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases the critical strike damage bonus of your Stormstrike by $s1%.",
+      "icon": 2562,
+      "attributes": 464,
+      "family": 11,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 108, "value": 20, "misc_a": 15, "classmask": [0, 16, 0], "target_a": 1}
+      ]
+    },
+    {
+      "id": 993306,
+      "name": "Storm's Edge",
+      "rank_text": "Rank 3",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases the critical strike damage bonus of your Stormstrike by $s1%.",
+      "icon": 2562,
+      "attributes": 464,
+      "family": 11,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 108, "value": 30, "misc_a": 15, "classmask": [0, 16, 0], "target_a": 1}
+      ]
+    },
+    {
+      "id": 993307,
+      "name": "Gale Force",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Your Stormstrike critical strikes have a 10% chance to finish its cooldown.",
+      "icon": 2562,
+      "attributes": 464,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 4, "value": 0, "target_a": 1}
+      ]
+    },
+    {
+      "id": 993310,
+      "name": "Crusading Zealot",
+      "rank_text": "Rank 1",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases the damage and the mana cost of your Crusader Strike by $s1%.",
+      "icon": 2309,
+      "attributes": 464,
+      "family": 10,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 108, "value": 3, "misc_a": 0, "classmask": [0, 32768, 0], "target_a": 1},
+        {"type": 6, "aura": 108, "value": 3, "misc_a": 14, "classmask": [0, 32768, 0], "target_a": 1}
+      ]
+    },
+    {
+      "id": 993311,
+      "name": "Crusading Zealot",
+      "rank_text": "Rank 2",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases the damage and the mana cost of your Crusader Strike by $s1%, and increases its range to 5 yards.",
+      "icon": 2309,
+      "attributes": 464,
+      "family": 10,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 108, "value": 6, "misc_a": 0, "classmask": [0, 32768, 0], "target_a": 1},
+        {"type": 6, "aura": 108, "value": 6, "misc_a": 14, "classmask": [0, 32768, 0], "target_a": 1},
+        {"type": 36, "trigger": 993313, "target_a": 1}
+      ]
+    },
+    {
+      "id": 993312,
+      "name": "Crusading Zealot",
+      "rank_text": "Rank 3",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases the damage and the mana cost of your Crusader Strike by $s1%, and increases its range to 10 yards.",
+      "icon": 2309,
+      "attributes": 464,
+      "family": 10,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 108, "value": 9, "misc_a": 0, "classmask": [0, 32768, 0], "target_a": 1},
+        {"type": 6, "aura": 108, "value": 9, "misc_a": 14, "classmask": [0, 32768, 0], "target_a": 1},
+        {"type": 36, "trigger": 993314, "target_a": 1}
+      ]
+    },
+    {
+      "id": 993313,
+      "clone_from": 35395,
+      "name": "Crusader Strike",
+      "rank_text": "Rank 2",
+      "draftable": false,
+      "tooltip": "An instant strike that causes $m2% weapon damage.",
+      "range_idx": 12
+    },
+    {
+      "id": 993314,
+      "clone_from": 35395,
+      "name": "Crusader Strike",
+      "rank_text": "Rank 3",
+      "draftable": false,
+      "tooltip": "An instant strike that causes $m2% weapon damage.",
+      "range_idx": 7
+    },
+    {
+      "id": 993315,
+      "name": "Crusader's Fury",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Increases the weapon damage of your Crusader Strike to 100%, and grants the Crusader's Fury ability.",
+      "icon": 2309,
+      "attributes": 464,
+      "family": 10,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "duration_idx": 0,
+      "effects": [
+        {"type": 6, "aura": 108, "value": 33, "misc_a": 0, "classmask": [0, 32768, 0], "target_a": 1},
+        {"type": 36, "trigger": 993316, "target_a": 1}
+      ]
+    },
+    {
+      "id": 993316,
+      "name": "Crusader's Fury",
+      "level": 1,
+      "rarity": 0,
+      "draftable": false,
+      "tooltip": "Your Crusader Strike has no cooldown for $d. Each critical strike or killing blow with Crusader Strike extends this effect by 1 sec, up to 20 sec.",
+      "icon": 2309,
+      "family": 10,
+      "school": 1,
+      "range_idx": 1,
+      "cast_idx": 1,
+      "cooldown": 120000,
+      "duration_idx": 1,
+      "effects": [
+        {"type": 6, "aura": 108, "value": -100, "misc_a": 11, "classmask": [0, 32768, 0], "target_a": 1}
       ]
     }
   ]

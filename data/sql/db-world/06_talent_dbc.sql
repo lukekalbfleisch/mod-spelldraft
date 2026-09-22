@@ -1,7 +1,17 @@
--- Talent.dbc data for the talent_dbc table (892 rows, dumped from a populated WotLK 3.3.5a world DB).
+-- Talent.dbc data for the talent_dbc table (892 stock rows, dumped from a populated WotLK 3.3.5a world DB).
 -- Stock AzerothCore creates this table EMPTY; the Tome of Talents progressive-rank drafting
 -- (LoadTalentChains in spell_choice.lua) requires it to be populated.
 -- DELETE-before-INSERT keeps this file safe to re-apply.
+--
+-- Some rows are EDITED or ADDED relative to that stock dump:
+--   * 901 Stormstrike / 2054 Improved Stormstrike / 2057 Maelstrom Weapon moved to cheaper
+--     tiers (see .agents/plans/melee-talent-rework/).
+--   * 1823 (Crusader Strike) REMOVED - the spell is baseline/trainer-taught now.
+--   * 3000-3004 are custom talents (Squall Line, Storm's Edge, Gale Force, Crusading
+--     Zealot, Crusader's Fury) in real class tabs 263/381. Talent ids that go through the
+--     native talent system must stay below 65536 (uint16 TalentSpellPos::talent_id).
+-- The client's own Talent.dbc has to be patched with the same rows (tools/talent_overrides.json)
+-- or the stock talent frame desyncs from server gating - see .agents/docs/systems/talents.md.
 
 DELETE FROM `talent_dbc`;
 INSERT INTO `talent_dbc` (`ID`,`TabID`,`TierID`,`ColumnIndex`,`SpellRank_1`,`SpellRank_2`,`SpellRank_3`,`SpellRank_4`,`SpellRank_5`,`SpellRank_6`,`SpellRank_7`,`SpellRank_8`,`SpellRank_9`,`PrereqTalent_1`,`PrereqTalent_2`,`PrereqTalent_3`,`PrereqRank_1`,`PrereqRank_2`,`PrereqRank_3`,`Flags`,`RequiredSpellID`,`CategoryMask_1`,`CategoryMask_2`) VALUES
@@ -247,7 +257,7 @@ INSERT INTO `talent_dbc` (`ID`,`TabID`,`TierID`,`ColumnIndex`,`SpellRank_1`,`Spe
 (843,282,3,1,24968,24969,24970,24971,24972,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (844,282,6,1,18562,0,0,0,0,0,0,0,0,828,0,0,4,0,0,1,0,0,0),
 (881,203,3,2,17322,17323,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-(901,263,6,2,17364,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),
+(901,263,3,0,17364,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),
 (941,301,1,2,17778,17779,17780,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (943,301,0,2,17788,17789,17790,17791,17792,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (944,301,0,1,17793,17796,17801,17802,17803,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
@@ -551,7 +561,6 @@ INSERT INTO `talent_dbc` (`ID`,`TabID`,`TierID`,`ColumnIndex`,`SpellRank_1`,`Spe
 (1820,362,0,1,19498,19499,19500,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1821,363,6,2,35104,35110,35111,0,0,0,0,0,0,1347,0,0,2,0,0,0,0,0,0),
 (1822,283,1,1,35363,35364,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-(1823,381,8,1,35395,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),
 (1824,161,7,1,35446,35448,35449,0,0,0,0,0,0,135,0,0,0,0,0,0,0,0,0),
 (1825,181,7,2,35541,35550,35551,35552,35553,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1826,81,9,2,35578,35581,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
@@ -714,10 +723,10 @@ INSERT INTO `talent_dbc` (`ID`,`TabID`,`TierID`,`ColumnIndex`,`SpellRank_1`,`Spe
 (2051,261,8,2,51480,51481,51482,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2052,261,6,2,51483,51485,51486,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2053,261,10,1,51490,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),
-(2054,263,7,2,51521,51522,0,0,0,0,0,0,0,901,0,0,0,0,0,0,0,0,0),
+(2054,263,4,3,51521,51522,0,0,0,0,0,0,0,901,0,0,0,0,0,0,0,0,0),
 (2055,263,7,0,51525,51526,51527,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2056,263,8,2,51523,51524,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-(2057,263,9,1,51528,51529,51530,51531,51532,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+(2057,263,6,3,51528,51529,51530,51531,51532,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2058,263,10,1,51533,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),
 (2059,262,8,2,51560,51561,0,0,0,0,0,0,0,1698,0,0,0,0,0,0,0,0,0),
 (2060,262,7,0,51554,51555,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
@@ -896,4 +905,9 @@ INSERT INTO `talent_dbc` (`ID`,`TabID`,`TierID`,`ColumnIndex`,`SpellRank_1`,`Spe
 (2282,383,6,0,31785,33776,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2283,161,7,0,64976,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2284,399,7,0,65661,66191,66192,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-(2285,400,6,0,66799,66814,66815,66816,66817,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+(2285,400,6,0,66799,66814,66815,66816,66817,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+(3000,263,3,3,993301,993302,993303,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+(3001,263,6,2,993304,993305,993306,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+(3002,263,7,2,993307,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+(3003,381,3,1,993310,993311,993312,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+(3004,381,8,1,993315,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
