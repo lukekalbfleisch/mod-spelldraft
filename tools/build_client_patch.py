@@ -175,6 +175,12 @@ def build_eq_spell_row(spells, base, spec):
     row[SF_MECHANIC] = spec.get('mechanic', 0)
     for i in range(SF_ATTR0, SF_ATTR0 + 8):
         row[i] = 0
+    # e.g. 0x80 = SPELL_ATTR0_DO_NOT_DISPLAY - every stock talent that teaches
+    # another spell via a SPELL_EFFECT_LEARN_SPELL "carrier" sets this on the
+    # carrier (Player::LearnTalent still fires SendLearnPacket for it either
+    # way, but the client won't list a DO_NOT_DISPLAY spell in the spellbook -
+    # verified against all 37 stock carrier spells, zero exceptions).
+    row[SF_ATTR0] = spec.get('attributes', 0)
     row[SF_ATTR0 + 1] = spec.get('attributes_ex1', 0)  # AttributesEx1, e.g. 0x1 = DISMISS_PET_FIRST
     for i in range(SF_STANCES, SF_STANCES + 4):
         row[i] = 0
