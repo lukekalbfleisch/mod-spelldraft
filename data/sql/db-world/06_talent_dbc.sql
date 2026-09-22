@@ -5,11 +5,17 @@
 --
 -- Some rows are EDITED or ADDED relative to that stock dump:
 --   * 901 Stormstrike / 2054 Improved Stormstrike / 2057 Maelstrom Weapon moved to cheaper
---     tiers (see .agents/plans/melee-talent-rework/).
+--     tiers (see .agents/plans/melee-talent-rework/), with 2054 directly below 901 so the
+--     client can draw their prerequisite arrow.
 --   * 1823 (Crusader Strike) REMOVED - the spell is baseline/trainer-taught now.
 --   * 3000-3004 are custom talents (Squall Line, Storm's Edge, Gale Force, Crusading
 --     Zealot, Crusader's Fury) in real class tabs 263/381. Talent ids that go through the
 --     native talent system must stay below 65536 (uint16 TalentSpellPos::talent_id).
+--   * 1647 and 1402 keep their tier but swap columns, because the client's talent frame
+--     cannot route a prerequisite line through a cell that a talent occupies: 2054 needs
+--     901's column and 3003 sat between 1411 and 1402, which popped "Error, this layout is
+--     undrawable" at the player in game. `build_client_patch.py` now refuses to build a
+--     layout its arrow router cannot draw.
 -- The client's own Talent.dbc has to be patched with the same rows (tools/talent_overrides.json)
 -- or the stock talent frame desyncs from server gating - see .agents/docs/systems/talents.md.
 
@@ -350,7 +356,7 @@ INSERT INTO `talent_dbc` (`ID`,`TabID`,`TierID`,`ColumnIndex`,`SpellRank_1`,`Spe
 (1396,361,2,2,19616,19617,19618,19619,19620,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1397,361,5,2,19621,19622,19623,19624,19625,0,0,0,0,1393,0,0,4,0,0,0,0,0,0),
 (1401,381,1,2,20042,20045,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-(1402,381,5,1,20049,20056,20057,0,0,0,0,0,0,1411,0,0,4,0,0,0,0,0,0),
+(1402,381,5,0,20049,20056,20057,0,0,0,0,0,0,1411,0,0,4,0,0,0,0,0,0),
 (1403,381,0,1,20060,20061,20062,20063,20064,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1407,381,0,2,20101,20102,20103,20104,20105,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1410,381,4,0,20111,20112,20113,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
@@ -410,7 +416,7 @@ INSERT INTO `talent_dbc` (`ID`,`TabID`,`TierID`,`ColumnIndex`,`SpellRank_1`,`Spe
 (1643,263,5,2,29082,29084,29086,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1645,261,1,2,30160,29179,29180,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1646,262,1,1,29187,29189,29191,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-(1647,263,4,0,29192,29193,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+(1647,263,4,3,29192,29193,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1648,262,4,0,29206,29205,29202,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1649,61,1,2,29438,29439,29440,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (1650,81,1,1,29441,29444,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
@@ -723,7 +729,7 @@ INSERT INTO `talent_dbc` (`ID`,`TabID`,`TierID`,`ColumnIndex`,`SpellRank_1`,`Spe
 (2051,261,8,2,51480,51481,51482,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2052,261,6,2,51483,51485,51486,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2053,261,10,1,51490,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),
-(2054,263,4,3,51521,51522,0,0,0,0,0,0,0,901,0,0,0,0,0,0,0,0,0),
+(2054,263,4,0,51521,51522,0,0,0,0,0,0,0,901,0,0,0,0,0,0,0,0,0),
 (2055,263,7,0,51525,51526,51527,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2056,263,8,2,51523,51524,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (2057,263,6,3,51528,51529,51530,51531,51532,0,0,0,0,0,0,0,0,0,0,0,0,0,0),

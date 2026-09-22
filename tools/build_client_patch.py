@@ -102,6 +102,91 @@ TALENT_DBC_FIELDS = 23  # ID,TabID,TierID,ColumnIndex,SpellRank_1-9,PrereqTalent
 TALENT_ORDER_FIELDS = (1, 2, 3)  # TabID, TierID, ColumnIndex
 
 
+# --- talent layout: what the client's frame can actually draw ---------------
+def _arrow_blocked(placed, button_tier, button_col, tier, col):
+    """Port of TalentFrame_DrawLines: None if drawable, else (kind, blocker id).
+
+    `placed` maps (tier, column) -> talent id for the talents the frame has
+    already laid out, which is what the client's router tests against.
+    """
+    def at(row, column):
+        return placed.get((row, column))
+
+    # Same column: a straight vertical line, blocked by anything in between.
+    if button_col == col:
+        for i in range(tier + 1, button_tier):
+            if at(i, button_col):
+                return 'blocked vertically', at(i, button_col)
+        return None
+    # Same tier: a straight horizontal line.
+    if button_tier == tier:
+        left, right = min(button_col, col), max(button_col, col)
+        for i in range(left + 1, right):
+            if at(tier, i):
+                return "there's a blocker", at(tier, i)
+        return None
+    # Diagonal: the client first tries up-then-over, then over-then-up.
+    left, right = min(button_col, col), max(button_col, col)
+    blocked = False
+    for i in range(left + (1 if left == col else 0),
+                   right - (0 if left == col else 1) + 1):
+        if at(tier, i):
+            blocked = True
+    if not blocked:
+        return None
+    for i in range(left + (1 if left == button_col else 0),
+                   right - (0 if left == button_col else 1) + 1):
+        if at(button_tier, i):
+            return 'undrawable', at(button_tier, i)
+    return None
+
+
+def talent_arrow_failures(talents):
+    """Prerequisite arrows the client's talent frame cannot draw.
+
+    Ported from the client's own Interface\\FrameXML\\TalentFrameBase.lua
+    (TalentFrame_SetPrereqs + TalentFrame_DrawLines, which ships inside
+    patch-enUS.MPQ). The frame lays a tab's talents out in record order and
+    draws a line from each talent to its prerequisite: straight down when they
+    share a column, straight across when they share a tier, otherwise one of two
+    diagonals. When both diagonals are blocked by an already-placed talent it
+    gives up and shows the player a dialogue reading "Error, this layout is
+    undrawable <talent>"; the shared-column/shared-tier cases print "this layout
+    is blocked vertically" / "there's a blocker" instead, and the arrow is
+    simply missing.
+
+    Nothing data-level catches this: every row is present and correct, and the
+    tree still renders - it just loses the connector, or pops that error at the
+    player. Moving a talent (or adding one) is what introduces it, so the check
+    runs on the finished file.
+
+    Returns [(tab, talent id, prereq id, kind, blocker id), ...].
+    """
+    rows = {}
+    for i in range(talents.recs):
+        row = list(struct.unpack_from(f'<{talents.fields}i', talents.records,
+                                      i * talents.recsize))
+        rows[row[0]] = row
+
+    failures = []
+    for tab in sorted({row[1] for row in rows.values()}):
+        ordered = sorted((row for row in rows.values() if row[1] == tab),
+                         key=lambda row: (row[2], row[3]))
+        placed = {}
+        for row in ordered:
+            placed[(row[2], row[3])] = row[0]
+            for prereq_id in row[13:16]:
+                prereq = rows.get(prereq_id)
+                # Stock data has at least one dangling prereq (1756 -> 1409,
+                # which is in no table); an unresolvable one draws nothing.
+                if not prereq or prereq[1] != tab or prereq_id == row[0]:
+                    continue
+                blocked = _arrow_blocked(placed, row[2], row[3], prereq[2], prereq[3])
+                if blocked:
+                    failures.append((tab, row[0], prereq_id, blocked[0], blocked[1]))
+    return failures
+
+
 def apply_talent_overrides(talents, path=TALENT_OVERRIDES_PATH):
     """
     Apply full-row Talent.dbc overrides/additions for real class tabs (Enhancement,
@@ -1101,11 +1186,24 @@ def main():
     talents.sort_records(TALENT_ORDER_FIELDS)
     violations = talents.order_violations(TALENT_ORDER_FIELDS)
     if violations:
-        # Loud: an out-of-order Talent.dbc makes the client drop a whole tree's
-        # talents while still drawing the stray row, which reads as "the tree
-        # only has my new talent" and is invisible to any content-level check.
-        print(f"WARNING: {len(violations)} Talent.dbc row(s) break the required "
-              f"TabID > TierID > ColumnIndex order, e.g. {violations[:3]}")
+        # The client walks a tab's talents as one contiguous run, so an
+        # out-of-order record silently drops the tab's other talents from the
+        # frame (they are in the file, they are just never reached).
+        raise SystemExit(
+            f"Talent.dbc is not ordered by TabID > TierID > ColumnIndex: "
+            f"{len(violations)} violation(s), e.g. {violations[:3]}. "
+            f"Fix Dbc.sort_records or the overrides, then rebuild.")
+    arrows = talent_arrow_failures(talents)
+    if arrows:
+        # The frame cannot route a prerequisite line around a blocking talent:
+        # it pops "Error, this layout is undrawable <talent>" at the player (or
+        # silently omits the arrow). Move one of the two talents involved.
+        detail = '; '.join(
+            f'talent {talent} (tab {tab}) -> prereq {prereq} blocked by {blocker}'
+            f' [{kind}]' for tab, talent, prereq, kind, blocker in arrows[:4])
+        raise SystemExit(
+            f"{len(arrows)} prerequisite arrow(s) the client cannot draw: {detail}. "
+            f"See talent_arrow_failures / .agents/docs/systems/talents.md.")
 
     manifest = json.loads((MODULE / 'tools/client_patch_manifest.json').read_text())
 

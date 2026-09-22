@@ -1277,7 +1277,7 @@
       "level": 1,
       "rarity": 0,
       "draftable": false,
-      "tooltip": "Increases the weapon damage of your Crusader Strike to 100%, and grants the Crusader's Fury ability.",
+      "tooltip": "Grants the Crusader's Fury ability.",
       "icon": 2309,
       "attributes": 464,
       "family": 10,
@@ -1286,7 +1286,6 @@
       "cast_idx": 1,
       "duration_idx": 0,
       "effects": [
-        {"type": 6, "aura": 108, "value": 33, "misc_a": 0, "classmask": [0, 32768, 0], "target_a": 1},
         {"type": 36, "trigger": 993316, "target_a": 1}
       ]
     },
@@ -1296,7 +1295,7 @@
       "level": 1,
       "rarity": 0,
       "draftable": false,
-      "tooltip": "Your Crusader Strike has no cooldown for $d. Each critical strike or killing blow with Crusader Strike extends this effect by 1 sec, up to 20 sec.",
+      "tooltip": "For $d, your Crusader Strike deals 100% weapon damage and has no cooldown. Each critical strike or killing blow with Crusader Strike extends this effect by 1 sec, up to 20 sec.",
       "icon": 2309,
       "family": 10,
       "school": 1,
@@ -1305,7 +1304,8 @@
       "cooldown": 120000,
       "duration_idx": 1,
       "effects": [
-        {"type": 6, "aura": 108, "value": -100, "misc_a": 11, "classmask": [0, 32768, 0], "target_a": 1}
+        {"type": 6, "aura": 108, "value": -100, "misc_a": 11, "classmask": [0, 32768, 0], "target_a": 1},
+        {"type": 6, "aura": 108, "value": 33, "misc_a": 0, "classmask": [0, 32768, 0], "target_a": 1}
       ]
     }
   ]
