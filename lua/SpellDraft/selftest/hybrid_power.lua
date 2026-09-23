@@ -67,6 +67,22 @@ SelfTest.register("hybrid_power", function(t, player)
                 baseMana, 0)
         t.check("caster secondary grants a mana pool", hybridMana > 0,
                 hybridMana, "> 0")
+
+        -- A pool that exists but is empty is a pool no spell can be paid from:
+        -- this is the half that used to be missing (max seeded, current left at
+        -- zero), and it is why a Warrior who drafted a mana class could not cast.
+        t.check("caster secondary fills the mana pool",
+                player:GetPower(POWER_MANA) == hybridMana,
+                player:GetPower(POWER_MANA), hybridMana)
+
+        -- And it has to keep refilling: for a class without native mana the
+        -- engine's own spirit regen is `spirit * gtRegenMPPerSpt[class]`, whose
+        -- per-class row is zero, so mod-multiclass applies a mana-per-5 bonus.
+        -- UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER is OBJECT_END (6) + 0x22, and the
+        -- POWER_MANA slot is +0 (UpdateFields.h).
+        local REGEN_FIELD_MANA = 6 + 0x22
+        local regen = player:GetFloatValue(REGEN_FIELD_MANA)
+        t.check("hybrid mana regenerates", regen > 0, regen, "> 0")
     else
         -- A caster primary already has mana; the secondary must not take it away.
         t.check("caster primary keeps its mana pool", baseMana > 0, baseMana, "> 0")

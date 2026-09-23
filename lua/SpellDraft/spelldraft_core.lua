@@ -62,7 +62,18 @@ local function ApplyDraftPowerTypes(player)
     local customMana = 150 + level * 50 + intellect * 15
     if player:GetMaxPower(0) < customMana then
         player:SetMaxPower(0, customMana)
-        player:SetPower(customMana, 0) -- Initialize starting mana
+    end
+
+    -- Fill the pools the character can spend from. Seeding only the max is what
+    -- left a drafted mana class unable to cast: max mana existed, current mana
+    -- stayed 0, and Spell::CheckPower refused every mana-cost spell until regen
+    -- trickled some in. Eluna's SetPower is (amount, powerType) - the reverse of
+    -- SetMaxPower(powerType, amount).
+    if player:GetMaxPower(0) > 0 then
+        player:SetPower(player:GetMaxPower(0), 0)
+    end
+    if player:GetMaxPower(3) > 0 then
+        player:SetPower(player:GetMaxPower(3), 3)
     end
 
     -- Force Rage display to keep UI clean, letting client show native Health, Rage, and Mana

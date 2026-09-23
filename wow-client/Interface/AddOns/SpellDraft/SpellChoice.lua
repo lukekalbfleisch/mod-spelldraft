@@ -6,6 +6,62 @@ local CLASS_ID_TO_NAME = {
   [6] = "DEATHKNIGHT", [7] = "SHAMAN", [8] = "MAGE", [9] = "WARLOCK", [11] = "DRUID"
 }
 
+-- ---------------------------------------------------------------------------
+-- Power access, 3.3.5a-safe.
+--
+-- This client has NO UnitPower/UnitPowerMax - both are 4.x API. Blizzard's own
+-- FrameXML reads power through UnitMana/UnitManaMax (see Interface\FrameXML\
+-- UnitFrame.lua: UnitFrameManaBar_Update), and Wow.exe contains no such global,
+-- only UnitPowerType. UnitMana follows the unit's CURRENT power type, so a
+-- multiclass character's second pool (a Warrior's drafted mana, a Mage's drafted
+-- rage) cannot be read client-side at all.
+--
+-- The server therefore pushes every pool the character uses over the
+-- "SpellDraftPower" addon message (spelldraft_power.lua), in display units -
+-- rage and runic power divided by 10, exactly like UnitMana reports them - and
+-- these two accessors fall back to it.
+-- ---------------------------------------------------------------------------
+local SD_POWER_CUR, SD_POWER_MAX = {}, {}
+
+local function sdUnitPower(unit, powerType)
+  if UnitPower then
+    return UnitPower(unit, powerType)
+  end
+  if unit ~= "player" then
+    return 0
+  end
+  if powerType == UnitPowerType(unit) then
+    return UnitMana(unit)
+  end
+  return SD_POWER_CUR[powerType] or 0
+end
+
+local function sdUnitPowerMax(unit, powerType)
+  if UnitPowerMax then
+    return UnitPowerMax(unit, powerType)
+  end
+  if unit ~= "player" then
+    return 0
+  end
+  if powerType == UnitPowerType(unit) then
+    return UnitManaMax(unit)
+  end
+  return SD_POWER_MAX[powerType] or 0
+end
+
+-- "0:cur:max;1:cur:max;..." - only the pools the character actually has.
+local function sdApplyPowerSnapshot(message)
+  for powerType, cur, max in string.gmatch(message, "(%d+):(%d+):(%d+);*") do
+    powerType, cur, max = tonumber(powerType), tonumber(cur), tonumber(max)
+    SD_POWER_CUR[powerType] = cur
+    SD_POWER_MAX[powerType] = max
+  end
+  if SpellDraft.UpdateHUD then
+    SpellDraft.UpdateHUD()
+  end
+end
+
+
 -- Shared single timer frame implementation for Delay/After
 local timerFrame = CreateFrame("Frame")
 local timerQueue = {}
@@ -548,6 +604,13 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
 
   elseif event == "CHAT_MSG_ADDON" then
     local prefix, message, channel, sender = arg1, arg2, arg3, arg4
+    if prefix == "SpellDraftPower" then
+      -- Server-side power snapshot (spelldraft_power.lua): the client cannot read
+      -- a pool that is not the unit's current power type, so this is how a
+      -- Warrior's drafted mana gets drawn at all.
+      sdApplyPowerSnapshot(message)
+      return
+    end
     if prefix == "SpellChoiceStatus" then
       if message == "prestiged" then
         unlocked = true
@@ -984,7 +1047,7 @@ local function RepositionBlizzardFrames()
 
     -- 1. Druid Mana Bar
     if PlayerFrameDruidManaBar then
-        local maxMana = UnitPowerMax("player", 0)
+        local maxMana = sdUnitPowerMax("player", 0)
         if showHUD and maxMana and maxMana > 0 then
             if not PlayerFrameDruidManaBar:IsShown() then
                 PlayerFrameDruidManaBar:Show()
@@ -1017,7 +1080,7 @@ local function RepositionBlizzardFrames()
     -- 2. Pet Frame
     if PetFrame and PetFrame:IsShown() then
         PetFrame:ClearAllPoints()
-        local maxMana = PlayerFrameDruidManaBar and UnitPowerMax("player", 0) or 0
+        local maxMana = PlayerFrameDruidManaBar and sdUnitPowerMax("player", 0) or 0
         if showHUD and maxMana > 0 then
             PetFrame:SetPoint("TOPLEFT", PlayerFrame, "BOTTOMLEFT", 80, -14)
         else
@@ -1158,8 +1221,8 @@ runicFrame:EnableMouse(true)
 runicFrame:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText("Runic Power", 0, 0.82, 1)
-    local cur = UnitPower("player", 6)
-    local max = UnitPowerMax("player", 6)
+    local cur = sdUnitPower("player", 6)
+    local max = sdUnitPowerMax("player", 6)
     GameTooltip:AddLine(cur .. " / " .. max, 1, 1, 1)
     GameTooltip:Show()
 end)
@@ -1174,7 +1237,7 @@ runicFrame:Hide()
 if PlayerFrameDruidManaBar then
     hooksecurefunc(PlayerFrameDruidManaBar, "Hide", function(self)
         if showHUD and not InCombatLockdown() then
-            local maxMana = UnitPowerMax("player", 0)
+            local maxMana = sdUnitPowerMax("player", 0)
             if maxMana and maxMana > 0 then
                 self:Show()
                 RepositionBlizzardFrames()
@@ -1208,9 +1271,9 @@ function SpellDraft.UpdateHUD()
     -- bar under the native power bar to mimic that third-bar layout. Every other
     -- class keeps using the engine's native secondary mana bar.
     if playerClass == "WARRIOR" then
-        local maxMana = UnitPowerMax("player", 0)
+        local maxMana = sdUnitPowerMax("player", 0)
         if maxMana and maxMana > 0 then
-            local curMana = UnitPower("player", 0)
+            local curMana = sdUnitPower("player", 0)
             manaBar:SetMinMaxValues(0, maxMana)
             manaBar:SetValue(curMana)
             manaBar.text:SetText(curMana .. " / " .. maxMana)
@@ -1230,9 +1293,9 @@ function SpellDraft.UpdateHUD()
     
     -- Update Rage bar
     if nativePower ~= 1 then
-        local maxRage = UnitPowerMax("player", 1)
+        local maxRage = sdUnitPowerMax("player", 1)
         if maxRage > 0 then
-            local currentRage = UnitPower("player", 1)
+            local currentRage = sdUnitPower("player", 1)
             rageBar:SetMinMaxValues(0, maxRage)
             rageBar:SetValue(currentRage)
             rageBar.text:SetText(currentRage .. " / " .. maxRage)
@@ -1246,9 +1309,9 @@ function SpellDraft.UpdateHUD()
     
     -- Update Energy bar
     if nativePower ~= 3 then
-        local maxEnergy = UnitPowerMax("player", 3)
+        local maxEnergy = sdUnitPowerMax("player", 3)
         if maxEnergy > 0 then
-            local currentEnergy = UnitPower("player", 3)
+            local currentEnergy = sdUnitPower("player", 3)
             energyBar:SetMinMaxValues(0, maxEnergy)
             energyBar:SetValue(currentEnergy)
             energyBar.text:SetText(currentEnergy .. " / " .. maxEnergy)
@@ -1262,9 +1325,9 @@ function SpellDraft.UpdateHUD()
 
     -- Update Runic Power bar (vertical, right side of nameplate)
     if nativePower ~= 6 then
-        local maxRunic = UnitPowerMax("player", 6)
+        local maxRunic = sdUnitPowerMax("player", 6)
         if maxRunic > 0 then
-            local currentRunic = UnitPower("player", 6)
+            local currentRunic = sdUnitPower("player", 6)
             runicBar:SetMinMaxValues(0, maxRunic)
             runicBar:SetValue(currentRunic)
             runicFrame:ClearAllPoints()
@@ -1301,7 +1364,7 @@ function SpellDraft.UpdateHUD()
 
     -- Show/Hide the native secondary mana bar safely (only outside combat)
     if PlayerFrameDruidManaBar and not InCombatLockdown() then
-        local maxMana = UnitPowerMax("player", 0)
+        local maxMana = sdUnitPowerMax("player", 0)
         if maxMana > 0 then
             if not PlayerFrameDruidManaBar:IsShown() then
                 PlayerFrameDruidManaBar:Show()
@@ -1317,12 +1380,12 @@ function SpellDraft.UpdateHUD()
 
     -- Update Druid Mana Bar values (safe, doesn't modify frame points/dimensions)
     if PlayerFrameDruidManaBar then
-        local maxMana = UnitPowerMax("player", 0)
+        local maxMana = sdUnitPowerMax("player", 0)
         if maxMana > 0 then
             local _, class = UnitClass("player")
             if class == "WARRIOR" then
-                local cur = UnitPower("player", 0)
-                local max = UnitPowerMax("player", 0)
+                local cur = sdUnitPower("player", 0)
+                local max = sdUnitPowerMax("player", 0)
                 PlayerFrameDruidManaBar:SetMinMaxValues(0, max)
                 PlayerFrameDruidManaBar:SetValue(cur)
             end
