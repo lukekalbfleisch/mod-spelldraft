@@ -489,26 +489,32 @@ The Prestige Shop inventory, item details, and token costs are defined and can b
 
 ---
 
-### Database-Level Loot Tuning
+### World-Drop Tuning
 
-Because loot tables are applied once to the database during server startup/migration, drop rates are configured directly within the SQL files rather than the Lua config. 
+No loot-table row exists for any of the four draft consumables: a table row is realm-wide, but only a
+character in draft mode can use one. Instead, `spelldraft_core.lua` rolls
+`CONFIG.DRAFT_CONSUMABLE_DROPS` (in [spelldraft_config.lua](lua/spelldraft_config.lua)) on every kill
+of a creature that has a loot table, once per draft-mode player in the kill's loot group. Edit that
+table to tune the rates; no SQL change and no server restart is needed, `.reload ale` picks it up.
 
-To tune these drop rates, edit the `Chance` columns at the bottom of [05_prestige_draft_items.sql](data/sql/db-world/base/05_prestige_draft_items.sql) and the matching update statements in [08_consumable_id_swap.sql](data/sql/db-world/base/08_consumable_id_swap.sql).
+| Item | Default (Normal/Elite) | Default (Bosses) | Final item id | Hijacked template restored by |
+| :--- | :--- | :--- | :--- | :--- |
+| **Scroll of Reroll** | `0.6%` | `10.0%` | `4427` | `08_consumable_id_swap.sql` |
+| **Scroll of Ban** | `0.6%` | `10.0%` | `1078` | `08_consumable_id_swap.sql` |
+| **Lost Grimoire** | `0.1%` | `5.0%` | `2793` | `36_grimoire_id_swap.sql` |
+| **Tome of Talents** | `1.0%` | `15.0%` | `4156` | `36_grimoire_id_swap.sql` |
 
-| Item | Default (Normal/Elite) | Default (Bosses) | Location in SQL |
-| :--- | :--- | :--- | :--- |
-| **Scroll of Reroll** (`4427`) | `0.6%` | `10.0%` | `05_prestige_draft_items.sql` / `08_consumable_id_swap.sql` |
-| **Scroll of Ban** (`1078`) | `0.6%` | `10.0%` | `05_prestige_draft_items.sql` / `08_consumable_id_swap.sql` |
-| **Lost Grimoire** (`13149`) | `0.1%` | `5.0%` | `05_prestige_draft_items.sql` |
-| **Tome of Talents** (`25462`) | `1.0%` | `15.0%` | `05_prestige_draft_items.sql` |
+Each of these four ids used to be a retail quest item (17731, 30811, 13149, 25462 respectively) before
+`08_consumable_id_swap.sql` and `36_grimoire_id_swap.sql` moved the draft items onto unused, dropless
+deprecated templates and restored the quest items. Don't reuse the old ids anywhere in this module.
 
 
 ## GM Commands for Testing Consumable Items
 
 For testing and verification in-game, you can use the following `.additem` commands to spawn the customized draft consumables:
 
-*   **Tome of Talents**: `.additem 25462 <count>` (triggers passive talent drafting & progressive rank upgrading)
-*   **Lost Grimoire**: `.additem 13149 <count>` (triggers an immediate bonus active spell draft)
+*   **Tome of Talents**: `.additem 4156 <count>` (triggers passive talent drafting & progressive rank upgrading)
+*   **Lost Grimoire**: `.additem 2793 <count>` (triggers an immediate bonus active spell draft)
 *   **Scroll of Reroll**: `.additem 4427 <count>` (adds +1 Reroll charges)
 *   **Scroll of Ban**: `.additem 1078 <count>` (adds +1 Ban charges)
 

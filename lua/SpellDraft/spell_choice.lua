@@ -983,8 +983,8 @@ local function HandleBuyShopItem(player, itemId)
         -- Drafts
         [4427] = 1,  -- Scroll of Reroll
         [1078] = 1,  -- Scroll of Ban
-        [13149] = 2, -- Lost Grimoire
-        [25462] = 2, -- Tome of Talents
+        [2793] = 2,  -- Lost Grimoire
+        [4156] = 2,  -- Tome of Talents
         
         -- Heirlooms
         [42943] = 3, -- Bloodied Arcanite Reaper
@@ -1790,8 +1790,8 @@ RegisterItemEvent(1078, 2, function(event, player, item, target)
     return false
 end)
 
--- Lost Grimoire (13149)
-RegisterItemEvent(13149, 2, function(event, player, item, target)
+-- Lost Grimoire (2793)
+RegisterItemEvent(2793, 2, function(event, player, item, target)
     if not IsPlayerPrestiged(player) then
         player:SendBroadcastMessage("You must be in Classless Draft Mode to use this grimoire.")
         return false
@@ -1810,7 +1810,7 @@ RegisterItemEvent(13149, 2, function(event, player, item, target)
     end
 
     -- Manually consume 1 grimoire
-    player:RemoveItem(13149, 1)
+    player:RemoveItem(2793, 1)
 
     -- Trigger a bonus draft: increment bonus_drafts by 1 and recompute total_expected_drafts
     local bonusDrafts = 0
@@ -1856,8 +1856,8 @@ RegisterItemEvent(13149, 2, function(event, player, item, target)
 end)
 
 
--- Tome of Talents (25462)
-RegisterItemEvent(25462, 2, function(event, player, item, target)
+-- Tome of Talents (4156)
+RegisterItemEvent(4156, 2, function(event, player, item, target)
     if not IsPlayerPrestiged(player) then
         player:SendBroadcastMessage("You must be in Classless Draft Mode to use this tome.")
         return false
@@ -1947,7 +1947,7 @@ RegisterItemEvent(25462, 2, function(event, player, item, target)
     end
 
     -- Manually consume 1 tome
-    player:RemoveItem(25462, 1)
+    player:RemoveItem(4156, 1)
 
     activeTalentDrafts[guid] = true
     currentDraftChoices[guid] = spells

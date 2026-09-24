@@ -42,10 +42,10 @@ CONFIG = {
     -- `boss` applies to rank-3 (boss) creatures, `normal` to everything else.
     -- Chances are percent and match the old loot-table injection.
     DRAFT_CONSUMABLE_DROPS = {
-        { item = 4427,  normal = 0.6, boss = 10.0 }, -- Scroll of Reroll
-        { item = 1078,  normal = 0.6, boss = 10.0 }, -- Scroll of Ban
-        { item = 13149, normal = 0.1, boss = 5.0 },  -- Lost Grimoire
-        { item = 25462, normal = 1.0, boss = 15.0 }, -- Tome of Talents
+        { item = 4427, normal = 0.6, boss = 10.0 }, -- Scroll of Reroll
+        { item = 1078, normal = 0.6, boss = 10.0 }, -- Scroll of Ban
+        { item = 2793, normal = 0.1, boss = 5.0 },  -- Lost Grimoire
+        { item = 4156, normal = 1.0, boss = 15.0 }, -- Tome of Talents
     },
     
     INCLUDE_RARITY_5 = false, --These are broken(like infinitely spammable, they stil function, spells. This will ruin any sort of balance on your server. But if you're singleplayer, who cares? This also includes racial passives for now.

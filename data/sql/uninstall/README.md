@@ -6,7 +6,7 @@ This directory contains cleanup and restoration scripts for the **SpellDraft** m
 
 ### 1. `uninstall_world.sql`
 Apply this script to your `acore_world` database. It does the following:
-*   Restores the hijacked item templates for the four consumables (`4427`, `1078`, `13149`, `25462`) and original test items (`17731`, `30811`) back to their vanilla database definitions.
+*   Restores the four hijacked consumable templates (`4427`, `1078`, `2793`, `4156`) and the four retail quest items they were moved off of (`17731`, `30811`, `13149`, `25462`) back to their vanilla database definitions.
 *   Deletes all injected custom consumable drop entries from `creature_loot_template`.
 *   Restores original quest/celebras drops that were overridden.
 *   Drops custom module tables: `dbc_spells`, `dbc_skilllineability`, and `dbc_skillline`.

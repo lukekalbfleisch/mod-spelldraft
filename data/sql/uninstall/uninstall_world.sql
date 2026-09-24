@@ -86,6 +86,50 @@ UPDATE `item_template` SET
   `Description` = ''
 WHERE `entry` = 25462;
 
+-- Restore 2793 and 4156, the deprecated retail templates the draft items now
+-- live on (Lost Grimoire / Tome of Talents moved off 13149/25462 onto these)
+UPDATE `item_template` SET
+  `class` = 12,
+  `subclass` = 0,
+  `name` = 'Deprecated Book: The History of Stormwind',
+  `Quality` = 1,
+  `Flags` = 16,
+  `BuyPrice` = 0,
+  `SellPrice` = 0,
+  `InventoryType` = 0,
+  `RequiredLevel` = 0,
+  `stackable` = 1,
+  `maxcount` = 1,
+  `spellid_1` = 0,
+  `spelltrigger_1` = 0,
+  `spellcharges_1` = 0,
+  `Material` = -1,
+  `bonding` = 4,
+  `PageText` = 243,
+  `Description` = ''
+WHERE `entry` = 2793;
+
+UPDATE `item_template` SET
+  `class` = 9,
+  `subclass` = 0,
+  `name` = 'Deprecated Tome of Conjure Mana Jewel',
+  `Quality` = 1,
+  `Flags` = 80,
+  `BuyPrice` = 15700,
+  `SellPrice` = 3925,
+  `InventoryType` = 0,
+  `RequiredLevel` = 37,
+  `stackable` = 1,
+  `maxcount` = 0,
+  `spellid_1` = 0,
+  `spelltrigger_1` = 0,
+  `spellcharges_1` = 0,
+  `Material` = -1,
+  `bonding` = 0,
+  `PageText` = 0,
+  `Description` = ''
+WHERE `entry` = 4156;
+
 -- Restore 17731 and 30811 to be absolutely clean
 UPDATE `item_template` SET
   `class` = 12,
@@ -128,8 +172,8 @@ UPDATE `item_template` SET
 WHERE `entry` = 30811;
 
 -- 2. Remove injected loot templates
-DELETE FROM `creature_loot_template` WHERE `Item` IN (4427, 1078, 13149, 25462) 
-  AND (`Chance` IN (0.6, 10.0, 0.1, 5.0, 1.0, 15.0) 
+DELETE FROM `creature_loot_template` WHERE `Item` IN (4427, 1078, 2793, 4156)
+  AND (`Chance` IN (0.6, 10.0, 0.1, 5.0, 1.0, 15.0)
        OR `Chance` BETWEEN 0.59 AND 0.61 
        OR `Chance` BETWEEN 9.9 AND 10.1 
        OR `Chance` BETWEEN 0.09 AND 0.11 
@@ -146,6 +190,10 @@ DELETE FROM `creature_loot_template` WHERE `Entry` IN (21503, 21505) AND `Item` 
 INSERT INTO `creature_loot_template` (`Entry`, `Item`, `Reference`, `Chance`, `QuestRequired`, `LootMode`, `GroupId`, `MinCount`, `MaxCount`, `Comment`) VALUES
 (21503, 30811, 0, 35, 1, 1, 0, 1, 1, 'Sunfury Warlock - Scroll of Demonic Unbanishing'),
 (21505, 30811, 0, 35, 1, 1, 0, 1, 1, 'Sunfury Summoner - Scroll of Demonic Unbanishing');
+
+DELETE FROM `creature_loot_template` WHERE `Entry` = 20568 AND `Item` = 25462;
+INSERT INTO `creature_loot_template` (`Entry`, `Item`, `Reference`, `Chance`, `QuestRequired`, `LootMode`, `GroupId`, `MinCount`, `MaxCount`, `Comment`) VALUES
+(20568, 25462, 0, 100, 1, 1, 0, 1, 1, 'Grand Warlock Nethekurse (1) - Tome of Dusk');
 
 -- 3. Drop module-owned DBC/lookup tables and delete talent_dbc contents
 DROP TABLE IF EXISTS `custom_random_enchantments`;

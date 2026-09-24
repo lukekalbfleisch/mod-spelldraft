@@ -377,7 +377,7 @@ local function EnsurePrestigeEntry(_, player)
                 StartDraftPowerTicker(p)
 
                 -- Grant Tome of Talents
-                p:AddItem(25462, 1)
+                p:AddItem(4156, 1)
                 p:SendBroadcastMessage("You have been granted a |cff00ccffTome of Talents|r! Use it to draft your first passive talent.")
                 end, 2000, 1)
         end
