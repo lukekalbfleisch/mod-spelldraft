@@ -33,6 +33,20 @@ CONFIG = {
     PRESTIGE_REROLL_SCALING = 2,     --Added to both start and per-level for each prestige beyond 1
 
     DRAFT_BANS_START = 5, --Amount of bans every player gets at the start of a draft
+
+    -- World drops of the draft consumables, for characters in DRAFT MODE ONLY.
+    -- There are no loot-table rows for these items (05_prestige_draft_items.sql
+    -- deletes them); spelldraft_core.lua rolls on every kill of a creature that
+    -- has a loot table, once per draft-mode player in the kill's loot group,
+    -- and puts a hit straight into that player's bags (mail if they are full).
+    -- `boss` applies to rank-3 (boss) creatures, `normal` to everything else.
+    -- Chances are percent and match the old loot-table injection.
+    DRAFT_CONSUMABLE_DROPS = {
+        { item = 4427,  normal = 0.6, boss = 10.0 }, -- Scroll of Reroll
+        { item = 1078,  normal = 0.6, boss = 10.0 }, -- Scroll of Ban
+        { item = 13149, normal = 0.1, boss = 5.0 },  -- Lost Grimoire
+        { item = 25462, normal = 1.0, boss = 15.0 }, -- Tome of Talents
+    },
     
     INCLUDE_RARITY_5 = false, --These are broken(like infinitely spammable, they stil function, spells. This will ruin any sort of balance on your server. But if you're singleplayer, who cares? This also includes racial passives for now.
 

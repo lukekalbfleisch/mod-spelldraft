@@ -443,7 +443,91 @@ local function OnGiveXP(event, player, amount, victim)
     end
 end
 
+-- Draft-consumable world drops, for draft-mode characters only.
+--
+-- Loot tables are realm-wide, but only a character in draft mode can use a
+-- Scroll of Reroll/Ban, a Lost Grimoire or a Tome of Talents, so these items
+-- have no loot-table rows (05_prestige_draft_items.sql deletes them). Instead,
+-- every kill of a creature that has a loot table rolls
+-- CONFIG.DRAFT_CONSUMABLE_DROPS once per draft-mode player in the kill's loot
+-- group, and a hit goes straight to that player. Putting it in the shared
+-- corpse loot would let the rest of the party, playerbots included, roll on it.
+
+-- Same radius as the core's group XP/loot sharing (MaxGroupXPDistance, 74).
+local DRAFT_DROP_RANGE = 74
+
+-- creature entry -> rank, for every creature whose loot table has rows: the
+-- set the old SQL injection covered. Rank 3 is a boss.
+local draftDropCreatureRank = {}
+do
+    local q = WorldDBQuery(
+        "SELECT ct.entry, ct.`rank` FROM creature_template ct WHERE ct.lootid <> 0 " ..
+        "AND EXISTS (SELECT 1 FROM creature_loot_template cl WHERE cl.Entry = ct.lootid)")
+    local count = 0
+    if q then
+        repeat
+            draftDropCreatureRank[q:GetUInt32(0)] = q:GetUInt32(1)
+            count = count + 1
+        until not q:NextRow()
+    end
+    print(string.format("[SpellDraft] Draft-consumable drops armed on %d creatures with loot, "
+        .. "for draft-mode characters only.", count))
+end
+
+local function DraftDropRecipients(killer, creature)
+    local candidates
+    local group = creature:GetLootRecipientGroup()
+    if group then
+        candidates = group:GetMembers()
+    else
+        candidates = { creature:GetLootRecipient() or killer }
+    end
+
+    local recipients = {}
+    for _, p in ipairs(candidates) do
+        if p and p:IsInWorld() and not IsBotPlayer(p)
+            and p:GetMapId() == creature:GetMapId()
+            and p:GetInstanceId() == creature:GetInstanceId()
+            and p:GetDistance(creature) <= DRAFT_DROP_RANGE
+            and IsPlayerInDraft(p) then
+            table.insert(recipients, p)
+        end
+    end
+    return recipients
+end
+
+local function GrantDraftDrop(player, itemId)
+    local link = GetItemLink(itemId)
+    if player:AddItem(itemId, 1) then
+        player:SendBroadcastMessage("You receive loot: " .. link .. ".")
+    else
+        SendMail("Draft loot", "Your bags were full, so this was mailed to you.",
+            player:GetGUIDLow(), 0, 61, 0, 0, 0, itemId, 1)
+        player:SendBroadcastMessage("You receive loot: " .. link .. " (bags full: sent by mail).")
+    end
+end
+
+-- (event, killer, killed) for PLAYER_EVENT_ON_KILL_CREATURE; (event, owner,
+-- killed) for PLAYER_EVENT_ON_PET_KILL, which also covers totems and can pass a
+-- nil owner or a non-creature victim.
+local function OnDraftDropKill(_, killer, creature)
+    if not creature or not creature.GetLootRecipientGroup then return end
+    local rank = draftDropCreatureRank[creature:GetEntry()]
+    if rank == nil then return end
+
+    for _, player in ipairs(DraftDropRecipients(killer, creature)) do
+        for _, drop in ipairs(CONFIG.DRAFT_CONSUMABLE_DROPS) do
+            local chance = (rank == 3) and drop.boss or drop.normal
+            if math.random() * 100 < chance then
+                GrantDraftDrop(player, drop.item)
+            end
+        end
+    end
+end
+
 -- Register only valid events
+RegisterPlayerEvent(7, OnDraftDropKill)       -- PLAYER_EVENT_ON_KILL_CREATURE
+RegisterPlayerEvent(58, OnDraftDropKill)      -- PLAYER_EVENT_ON_PET_KILL (pets and totems)
 RegisterPlayerEvent(4, OnPlayerLogout)
 RegisterPlayerEvent(13, OnLevelUp)  -- 13 = PLAYER_EVENT_ON_LEVEL_CHANGE
 RegisterPlayerEvent(3, EnsurePrestigeEntry)   -- On login
